@@ -1,4 +1,14 @@
 (function(){
+  let deferredInstallPrompt = null;
+  window.addEventListener("beforeinstallprompt", (e)=>{
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    const btn = document.getElementById("androidInstallBtn");
+    if(btn && !(window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches)){
+      btn.hidden = false;
+    }
+  });
+
   // Local cache + shared cloud document (last-write-wins per key).
   const NIDO_CLOUD_URL = "https://api.npoint.io/f10c050bfa45a7eac723";
   const SYNC_META_KEY = "nido:sync:meta";
@@ -301,7 +311,7 @@
     const st = window.storage && window.storage.status ? window.storage.status() : {};
     let mode = "Nube compartida (conectando…)";
     if(st.cloudOk === true) mode = "Nube compartida — padres y niñera ven lo mismo";
-    else if(st.cloudOk === false) mode = "Este iPhone por ahora (se sube a la nube al reconectar)";
+    else if(st.cloudOk === false) mode = "Este teléfono por ahora (se sube a la nube al reconectar)";
     const when = st.lastSyncAt ? new Date(st.lastSyncAt).toLocaleTimeString("es-ES", {hour:"numeric", minute:"2-digit"}) : "—";
     el.innerHTML = `
       <div>Modo: <b>${mode}</b></div>
@@ -315,7 +325,7 @@
     const testKey = "amir:_selftest";
     const ok = await setJSON(testKey, {t:Date.now()}, true);
     if(!ok){
-      updateDiag({result:"❌ Falló", detail:"No se pudo guardar en este iPhone. Usa el respaldo manual mientras tanto."});
+      updateDiag({result:"❌ Falló", detail:"No se pudo guardar en este teléfono. Usa el respaldo manual mientras tanto."});
       showError(true, "El guardado automático no está disponible ahora mismo. La app sigue funcionando, pero usa \"Compartir o copiar respaldo\" en Inicio antes de cerrarla.");
       return false;
     }
@@ -325,9 +335,9 @@
     }catch(e){ /* offline is ok; local already saved */ }
     const st = window.storage.status ? window.storage.status() : {};
     if(st.cloudOk){
-      updateDiag({result:"✅ Nube conectada", detail:"Lo que marque Dayris aparece en el iPhone de los padres, y al revés. Última sync "+nowHHMM()+"."});
+      updateDiag({result:"✅ Nube conectada", detail:"Lo que marque Dayris aparece en el teléfono de los padres, y al revés. Última sync "+nowHHMM()+"."});
     } else {
-      updateDiag({result:"✅ Guardado en este iPhone", detail:"No hay nube ahora. Al volver internet se sincroniza solo."});
+      updateDiag({result:"✅ Guardado en este teléfono", detail:"No hay nube ahora. Al volver internet se sincroniza solo."});
     }
     return true;
   }
@@ -350,7 +360,7 @@
   // ---------- TABS ----------
   document.querySelectorAll(".nav-btn").forEach(btn=>{
     btn.addEventListener("click", ()=>{
-      document.querySelectorAll(".form-modal-bg").forEach(m=> m.classList.add("hidden"));
+      if(anyOverlayOpen()) requestCloseOverlay();
       document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
       document.querySelectorAll(".tab-content").forEach(t=>t.classList.remove("active"));
       btn.classList.add("active");
@@ -391,20 +401,50 @@
 
   // ---------- PIN protection for Padres view ----------
   const PADRES_PIN = "4270";
+  function overlayEls(){
+    return [
+      document.getElementById("pinModalBg"),
+      document.getElementById("eventFormBg"),
+      document.getElementById("recFormBg"),
+      document.getElementById("libreFormBg"),
+      document.getElementById("imgLightbox")
+    ].filter(Boolean);
+  }
+  function anyOverlayOpen(){
+    return overlayEls().some(el => !el.classList.contains("hidden"));
+  }
+  function hideOverlays(){
+    overlayEls().forEach(el => el.classList.add("hidden"));
+    const img = document.getElementById("imgLightboxImg");
+    if(img) img.src = "";
+    if(typeof resetRecipeForm === "function") resetRecipeForm();
+    if(typeof resetLibreForm === "function") resetLibreForm();
+  }
+  function openOverlay(el){
+    if(!el) return;
+    if(!anyOverlayOpen()) history.pushState({ nidoOverlay: true }, "");
+    el.classList.remove("hidden");
+  }
+  function requestCloseOverlay(){
+    if(history.state && history.state.nidoOverlay) history.back();
+    else hideOverlays();
+  }
+  window.addEventListener("popstate", ()=>{
+    if(anyOverlayOpen()) hideOverlays();
+  });
   function requestPadresAccess(){
     const modal = document.getElementById("pinModalBg");
     const input = document.getElementById("pinInput");
     document.getElementById("pinError").classList.remove("show");
     input.value = "";
-    modal.classList.remove("hidden");
+    openOverlay(modal);
     setTimeout(()=> input.focus(), 50);
   }
-  function closePinModal(){ document.getElementById("pinModalBg").classList.add("hidden"); }
   function tryPin(){
     const val = document.getElementById("pinInput").value.replace(/\D/g,"").trim();
     if(val === PADRES_PIN){
-      closePinModal();
       setRole("padres");
+      requestCloseOverlay();
     } else {
       document.getElementById("pinError").classList.add("show");
       document.getElementById("pinInput").value = "";
@@ -412,20 +452,20 @@
     }
   }
   document.getElementById("pinConfirm").addEventListener("click", tryPin);
-  document.getElementById("pinCancel").addEventListener("click", closePinModal);
+  document.getElementById("pinCancel").addEventListener("click", requestCloseOverlay);
   document.getElementById("pinInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") tryPin(); });
   document.getElementById("pinInput").addEventListener("input", (e)=>{
     e.target.value = e.target.value.replace(/\D/g,"").slice(0,4);
     if(e.target.value.length === 4) tryPin();
   });
-  document.getElementById("pinModalBg").addEventListener("click", (e)=>{ if(e.target.id==="pinModalBg") closePinModal(); });
+  document.getElementById("pinModalBg").addEventListener("click", (e)=>{ if(e.target.id==="pinModalBg") requestCloseOverlay(); });
 
   // ---------- form pop-ups ----------
   function wireModalToggle(openBtnId, bgId, closeBtnId){
     const bg = document.getElementById(bgId);
-    document.getElementById(openBtnId).addEventListener("click", ()=> bg.classList.remove("hidden"));
-    document.getElementById(closeBtnId).addEventListener("click", ()=> bg.classList.add("hidden"));
-    bg.addEventListener("click", (e)=>{ if(e.target === bg) bg.classList.add("hidden"); });
+    document.getElementById(openBtnId).addEventListener("click", ()=> openOverlay(bg));
+    document.getElementById(closeBtnId).addEventListener("click", ()=> requestCloseOverlay());
+    bg.addEventListener("click", (e)=>{ if(e.target === bg) requestCloseOverlay(); });
   }
   wireModalToggle("toggleEventForm","eventFormBg","closeEventForm");
   wireModalToggle("toggleRecForm","recFormBg","closeRecForm");
@@ -752,7 +792,7 @@
     const img = document.getElementById("imgLightboxImg");
     if(!box || !img) return;
     img.src = src;
-    box.classList.remove("hidden");
+    openOverlay(box);
   }
   function closeLightbox(){
     const box = document.getElementById("imgLightbox");
@@ -762,7 +802,7 @@
   }
   const imgLightbox = document.getElementById("imgLightbox");
   if(imgLightbox){
-    imgLightbox.addEventListener("click", (e)=>{ if(e.target.id==="imgLightbox" || e.target.id==="imgLightboxClose") closeLightbox(); });
+    imgLightbox.addEventListener("click", (e)=>{ if(e.target.id==="imgLightbox" || e.target.id==="imgLightboxClose") requestCloseOverlay(); });
   }
   const docImagesInput = document.getElementById("docImages");
   if(docImagesInput){
@@ -920,7 +960,7 @@
     await setJSON(EVENTS_KEY, events);
     document.getElementById("evDate").value=""; document.getElementById("evTime").value="";
     document.getElementById("evTitle").value=""; document.getElementById("evNotes").value="";
-    document.getElementById("eventFormBg").classList.add("hidden");
+    requestCloseOverlay();
     const [y,m,dd]=date.split("-").map(Number); calSelected=new Date(y,m-1,dd);
     renderCalendar(); renderDayDetail(); renderInicio();
   });
@@ -1032,7 +1072,7 @@
     document.getElementById("recNotes").value = r.notes || "";
     const remaining = MAX_EDITS - (r.editCount||0);
     document.getElementById("addRecBtn").textContent = `Guardar cambios (te quedan ${remaining} ${remaining===1?'edición':'ediciones'})`;
-    document.getElementById("recFormBg").classList.remove("hidden");
+    openOverlay(document.getElementById("recFormBg"));
   }
   function resetRecipeForm(){
     editingRecipeId = null;
@@ -1058,7 +1098,7 @@
         if((r.editCount||0) >= MAX_EDITS){
           alert("Esta receta ya alcanzó el máximo de "+MAX_EDITS+" ediciones.");
           resetRecipeForm();
-          document.getElementById("recFormBg").classList.add("hidden");
+          requestCloseOverlay();
           renderRecetas();
           return;
         }
@@ -1072,7 +1112,7 @@
     }
     await setJSON(RECIPES_KEY, recipes);
     resetRecipeForm();
-    document.getElementById("recFormBg").classList.add("hidden");
+    requestCloseOverlay();
     renderRecetas();
   });
 
@@ -1320,7 +1360,7 @@
     }
     document.getElementById("libReason").value = l.reason || "";
     document.getElementById("addLibreBtn").textContent = "Guardar cambios";
-    document.getElementById("libreFormBg").classList.remove("hidden");
+    openOverlay(document.getElementById("libreFormBg"));
   }
   function resetLibreForm(){
     editingLibreId = null;
@@ -1367,7 +1407,7 @@
     }
     await setJSON(LIBRES_KEY, libres);
     resetLibreForm();
-    document.getElementById("libreFormBg").classList.add("hidden");
+    requestCloseOverlay();
     renderLibres(); renderInicio();
   });
 
@@ -1493,15 +1533,37 @@
     try{ document.execCommand("copy"); }catch(e){}
     document.body.removeChild(ta);
   }
+  function readFileText(file){
+    if(file && typeof file.text === "function") return file.text();
+    return new Promise((resolve, reject)=>{
+      const r = new FileReader();
+      r.onload = ()=> resolve(String(r.result || ""));
+      r.onerror = ()=> reject(r.error || new Error("file"));
+      r.readAsText(file);
+    });
+  }
+  function showBackupMsg(){
+    const msg = document.getElementById("backupMsg");
+    msg.style.display = "block";
+    setTimeout(()=> msg.style.display="none", 4000);
+  }
   document.getElementById("copyBackupBtn").addEventListener("click", async ()=>{
     const text = JSON.stringify(collectState());
-    const file = new File([text], "nido-respaldo.json", { type: "application/json" });
+    let file = null;
+    try{ file = new File([text], "nido-respaldo.json", { type: "application/json" }); }catch(err){}
     try{
-      if(navigator.canShare && navigator.canShare({ files:[file] })){
+      if(file && navigator.canShare && navigator.canShare({ files:[file] })){
         await navigator.share({ files:[file], title:"Respaldo Nido" });
-        const msg = document.getElementById("backupMsg");
-        msg.style.display = "block";
-        setTimeout(()=> msg.style.display="none", 4000);
+        showBackupMsg();
+        return;
+      }
+    }catch(e){
+      if(e && e.name === "AbortError") return;
+    }
+    try{
+      if(navigator.share){
+        await navigator.share({ title:"Respaldo Nido", text:text });
+        showBackupMsg();
         return;
       }
     }catch(e){
@@ -1509,9 +1571,7 @@
     }
     try{ await navigator.clipboard.writeText(text); }
     catch(e){ copyTextFallback(text); }
-    const msg = document.getElementById("backupMsg");
-    msg.style.display = "block";
-    setTimeout(()=> msg.style.display="none", 4000);
+    showBackupMsg();
   });
   document.getElementById("restoreBackupBtn").addEventListener("click", ()=>{
     const raw = document.getElementById("backupPaste").value.trim();
@@ -1530,7 +1590,7 @@
     e.target.value = "";
     if(!file) return;
     try{
-      const obj = JSON.parse(await file.text());
+      const obj = JSON.parse(await readFileText(file));
       applyState(obj);
       alert("Respaldo restaurado.");
     }catch(err){
@@ -1591,7 +1651,7 @@
         }
       }
     }catch(e){
-      updateDiag({result:"⚠️ Sin nube", detail:"Guardado en este iPhone. Se sincroniza al volver internet."});
+      updateDiag({result:"⚠️ Sin nube", detail:"Guardado en este teléfono. Se sincroniza al volver internet."});
     }
   }
 
@@ -1614,7 +1674,7 @@
         if(st.cloudOk){
           updateDiag({result:"✅ Nube conectada", detail:"Padres y niñera comparten el mismo Nido. Última sync "+nowHHMM()+"."});
         } else {
-          updateDiag({result:"✅ Guardado en este iPhone", detail:"No hay nube ahora. Al volver internet se sincroniza solo."});
+          updateDiag({result:"✅ Guardado en este teléfono", detail:"No hay nube ahora. Al volver internet se sincroniza solo."});
         }
       } else {
         updateDiag({result:"⚠️ Guardó pero no pudo releer", detail:"Usa el respaldo manual si ves datos viejos."});
@@ -1641,11 +1701,7 @@
     renderRecFilters(); renderRecetas();
     renderLibres();
     await renderInicio();
-    const installCard = document.getElementById("iosInstallCard");
-    if(installCard){
-      const standalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
-      if(!standalone) installCard.hidden = false;
-    }
+    setupInstallCard();
     if(window.storage && window.storage.onRemote){
       window.storage.onRemote((applied)=>{
         const live = (applied || []).filter(k => k.indexOf("amir:_") !== 0);
@@ -1710,6 +1766,61 @@
       }
     }, 50);
   });
+
+  function isStandaloneApp(){
+    return window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+  }
+  function isIosDevice(){
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  }
+  function isAndroidDevice(){
+    return /Android/i.test(navigator.userAgent);
+  }
+  function showAndroidInstallBtn(){
+    const btn = document.getElementById("androidInstallBtn");
+    if(btn && deferredInstallPrompt && !isStandaloneApp()) btn.hidden = false;
+  }
+  function setupInstallCard(){
+    const installCard = document.getElementById("iosInstallCard");
+    if(!installCard) return;
+    if(isStandaloneApp()){
+      installCard.hidden = true;
+      return;
+    }
+    installCard.hidden = false;
+    const showIos = !isAndroidDevice();
+    const showAndroid = !isIosDevice();
+    const iosLead = document.getElementById("installIosLead");
+    const iosSteps = document.getElementById("installIosSteps");
+    const andLead = document.getElementById("installAndroidLead");
+    const andSteps = document.getElementById("installAndroidSteps");
+    if(iosLead) iosLead.hidden = !showIos;
+    if(iosSteps) iosSteps.hidden = !showIos;
+    if(andLead) andLead.hidden = !showAndroid;
+    if(andSteps) andSteps.hidden = !showAndroid;
+    showAndroidInstallBtn();
+  }
+  window.addEventListener("appinstalled", ()=>{
+    deferredInstallPrompt = null;
+    const card = document.getElementById("iosInstallCard");
+    const btn = document.getElementById("androidInstallBtn");
+    if(card) card.hidden = true;
+    if(btn) btn.hidden = true;
+  });
+  const androidInstallBtn = document.getElementById("androidInstallBtn");
+  if(androidInstallBtn){
+    androidInstallBtn.addEventListener("click", async ()=>{
+      if(!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      try{ await deferredInstallPrompt.userChoice; }catch(err){}
+      deferredInstallPrompt = null;
+      androidInstallBtn.hidden = true;
+    });
+  }
+  const standaloneMq = window.matchMedia("(display-mode: standalone)");
+  if(standaloneMq.addEventListener){
+    standaloneMq.addEventListener("change", (e)=>{ if(e.matches) setupInstallCard(); });
+  }
 
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("./sw.js").catch(()=>{ /* offline cache is optional */ });

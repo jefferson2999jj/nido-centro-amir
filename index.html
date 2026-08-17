@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#F7F2E7" />
+<meta name="color-scheme" content="light only" />
+<meta name="application-name" content="Nido" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -55,14 +57,23 @@
       </div>
     </div>
     <div class="card ios-install" id="iosInstallCard" hidden>
-      <div class="sec-heading" style="margin-top:0;">📲 Instalar en iPhone</div>
-      <ol class="install-steps">
+      <div class="sec-heading" style="margin-top:0;">📲 Instalar en el teléfono</div>
+      <button type="button" class="submit-btn" id="androidInstallBtn" hidden style="margin-bottom:12px;">Instalar Nido</button>
+      <p class="install-note" id="installAndroidLead" hidden style="margin-bottom:8px;"><b>Samsung / Android</b> — Chrome o Internet de Samsung:</p>
+      <ol class="install-steps" id="installAndroidSteps" hidden>
+        <li>Abre este enlace en <b>Chrome</b> o <b>Internet de Samsung</b> (no en Instagram ni WhatsApp).</li>
+        <li>Toca el menú <b>⋮</b> (arriba o abajo).</li>
+        <li>Elige <b>Instalar aplicación</b>, <b>Añadir a pantalla de inicio</b> o <b>Agregar página a → Pantalla de inicio</b>.</li>
+        <li>Entra siempre por el icono <b>Nido</b>.</li>
+      </ol>
+      <p class="install-note" id="installIosLead" hidden style="margin-bottom:8px;"><b>iPhone</b> — solo Safari:</p>
+      <ol class="install-steps" id="installIosSteps" hidden>
         <li>Abre este enlace en <b>Safari</b> (no en Chrome ni Instagram).</li>
         <li>Toca el botón <b>Compartir</b> (cuadrado con flecha hacia arriba).</li>
         <li>Elige <b>Añadir a pantalla de inicio</b>.</li>
         <li>Toca <b>Añadir</b>. Entra siempre por el icono <b>Nido</b>.</li>
       </ol>
-      <p class="install-note">Así no se borra al cerrar Safari y se ve a pantalla completa, sin barra de dirección.</p>
+      <p class="install-note">Así no se borra al cerrar el navegador y se ve a pantalla completa. Padres y niñera pueden usar iPhone o Samsung — es el mismo Nido.</p>
     </div>
     <div class="card">
       <div class="greet" id="greetText">¡Bienvenida! 👋</div>
@@ -85,7 +96,7 @@
     </div>
     <div class="card" id="backupCard" hidden>
       <div class="sec-heading" style="margin-top:0;">💾 Respaldo manual</div>
-      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">Padres y niñera ya se sincronizan solos. Este respaldo es por si no hay internet: compártelo a Archivos o Notas, y pégalo o elige el archivo para restaurar.</p>
+      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">Padres y niñera ya se sincronizan solos. Este respaldo es por si no hay internet: compártelo a Archivos, Drive o Notas, y pégalo o elige el archivo para restaurar.</p>
       <button class="toggle-btn" id="copyBackupBtn" style="margin-bottom:10px;">📤 Compartir o copiar respaldo</button>
       <div id="backupMsg" style="font-size:12px;font-weight:700;color:var(--green);display:none;margin-bottom:10px;">¡Listo! Guárdalo en Notas o Archivos.</div>
       <label class="toggle-btn" for="restoreFileInput" style="margin-bottom:10px;">📁 Restaurar desde un archivo</label>
@@ -196,7 +207,7 @@
       <div class="field" id="docImagesWrap" hidden>
         <label>Imágenes</label>
         <input type="file" id="docImages" accept="image/*" multiple>
-        <p class="install-note" style="margin-top:6px;">Puedes subir fotos del contrato, recetas o papeles. Se comprimen solas para el iPhone.</p>
+        <p class="install-note" style="margin-top:6px;">Puedes subir fotos del contrato, recetas o papeles. Se comprimen solas.</p>
         <div class="doc-photos" id="docImagePreview"></div>
       </div>
       <button class="submit-btn" id="addDocBtn">Guardar documento</button>

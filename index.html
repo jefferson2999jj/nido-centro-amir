@@ -68,16 +68,22 @@
       <div class="greet" id="greetText">¡Bienvenida! 👋</div>
       <div class="greet-sub" id="greetDate">—</div>
       <div id="reminders"></div>
+      <div id="manualReminderForm" hidden>
+        <div class="sec-heading">📝 Recordatorio para Dayris</div>
+        <div class="field"><label>Texto</label><input type="text" id="remText" placeholder="Ej. Cortar uñas, llevar chaqueta…"></div>
+        <div class="field"><label>Fecha (opcional — si la dejas vacía, se ve siempre)</label><input type="date" id="remDate"></div>
+        <button class="submit-btn" id="addRemBtn">Publicar recordatorio</button>
+      </div>
     </div>
     <div class="card">
       <div class="sec-heading" style="margin-top:0;">📊 Resumen</div>
       <div id="dashStats"></div>
     </div>
-    <div class="card" id="diagCard">
+    <div class="card" id="diagCard" hidden>
       <div class="sec-heading" style="margin-top:0;">🔧 Sincronización</div>
       <div id="diagStatus" style="font-size:12.5px;line-height:1.6;color:var(--ink-soft);"></div>
     </div>
-    <div class="card">
+    <div class="card" id="backupCard" hidden>
       <div class="sec-heading" style="margin-top:0;">💾 Respaldo manual</div>
       <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">Padres y niñera ya se sincronizan solos. Este respaldo es por si no hay internet: compártelo a Archivos o Notas, y pégalo o elige el archivo para restaurar.</p>
       <button class="toggle-btn" id="copyBackupBtn" style="margin-bottom:10px;">📤 Compartir o copiar respaldo</button>
@@ -187,6 +193,12 @@
       </div>
       <div class="field"><label>Título</label><input type="text" id="docTitle" placeholder="Ej. Horario de Amir"></div>
       <div class="field"><label>Contenido / enlace</label><textarea id="docBody" placeholder="Escribe el contenido, pega el texto o pega un enlace al archivo…"></textarea></div>
+      <div class="field" id="docImagesWrap" hidden>
+        <label>Imágenes</label>
+        <input type="file" id="docImages" accept="image/*" multiple>
+        <p class="install-note" style="margin-top:6px;">Puedes subir fotos del contrato, recetas o papeles. Se comprimen solas para el iPhone.</p>
+        <div class="doc-photos" id="docImagePreview"></div>
+      </div>
       <button class="submit-btn" id="addDocBtn">Guardar documento</button>
     </div>
     <div id="docsList"></div>
@@ -339,6 +351,11 @@
       <button class="submit-btn" id="addLibreBtn">Enviar solicitud</button>
     </div>
   </div>
+</div>
+
+<div class="img-lightbox hidden" id="imgLightbox">
+  <button type="button" class="img-lightbox-close" id="imgLightboxClose">✕</button>
+  <img id="imgLightboxImg" alt="Documento">
 </div>
 
 <div class="bottom-nav">

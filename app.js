@@ -197,6 +197,7 @@
   const RECIPES_KEY = "amir:recipes";
   const LIBRES_KEY = "amir:libres";
   const BONUS_KEY = "amir:bonus2";
+  const REMINDERS_KEY = "amir:reminders";
   const ANNUAL_PAID_DAYS = 10; // 2 semanas x 5 días laborables
   const SHARED = false; // personal storage — avoids the "Access shared data" permission gate that was failing
   const DOC_CATS = ["Horario del Bebé","Contrato","Actividades de Desarrollo","Resúmenes del Doctor","Otro"];
@@ -226,7 +227,7 @@
   let currentDate = new Date();
   let dayData = { locked:false, signedAt:null, items:[], notes:{humor:"",cambios:"",situaciones:""} };
   let templateTasks = [];
-  let docs = [], events = [], recipes = [], libres = [];
+  let docs = [], events = [], recipes = [], libres = [], reminders = [];
   let docFilter = "Todos";
   let calViewMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   let calSelected = new Date();
@@ -365,10 +366,23 @@
       document.getElementById(pair[0]).classList.toggle("active", r==="niñera");
       document.getElementById(pair[1]).classList.toggle("active", r==="padres");
     });
+    updatePadresOnlyUI();
     renderChecklist();
     renderInicio();
     renderLibres();
     renderRecetas();
+    renderDocs();
+  }
+  function updatePadresOnlyUI(){
+    const padres = role === "padres";
+    const diag = document.getElementById("diagCard");
+    const backup = document.getElementById("backupCard");
+    const remForm = document.getElementById("manualReminderForm");
+    const imgWrap = document.getElementById("docImagesWrap");
+    if(diag) diag.hidden = !padres;
+    if(backup) backup.hidden = !padres;
+    if(remForm) remForm.hidden = !padres;
+    if(imgWrap) imgWrap.hidden = !padres;
   }
   document.getElementById("roleNinera").addEventListener("click", ()=> setRole("niñera"));
   document.getElementById("rolePadres").addEventListener("click", ()=> requestPadresAccess());
@@ -525,13 +539,15 @@
 
     const lockRow = document.getElementById("lockRow");
     lockRow.style.display = dayData.locked ? "flex" : "none";
-    if(dayData.locked) document.getElementById("lockText").textContent = `🔒 Firmado a las ${dayData.signedAt} — checklist bloqueado`;
-    document.getElementById("unlockLink").style.display = (dayData.locked && role==="niñera") ? "inline" : "none";
+    if(dayData.locked) document.getElementById("lockText").textContent = role==="padres"
+      ? `🔒 Firmado a las ${dayData.signedAt} — puedes editar o borrar`
+      : `🔒 Firmado a las ${dayData.signedAt} — checklist bloqueado`;
+    document.getElementById("unlockLink").style.display = dayData.locked ? "inline" : "none";
     document.getElementById("signBtn").style.display = (role==="niñera" && !dayData.locked) ? "block" : "none";
 
     document.getElementById("importantToggle").classList.toggle("active", !!dayData.important);
 
-    const readonly = dayData.locked || role==="padres";
+    const readonly = role==="niñera" && dayData.locked;
     renderSection("actividades", "listActividades", readonly);
     renderSection("hogar", "listHogar", readonly);
     renderNotes(readonly);
@@ -602,14 +618,28 @@
       <div class="simple-row ${readonly?'readonly':''}" data-id="${item.id}">
         <div class="simple-check ${item.done?'done':''}">${item.done?'✓':''}</div>
         <div class="simple-text ${item.done?'done':''}">${escapeHtml(item.text)}</div>
+        ${role==="padres" ? `<button type="button" class="row-del" data-id="${item.id}" aria-label="Borrar">✕</button>` : ""}
       </div>`).join("");
     if(!readonly){
       el.querySelectorAll(".simple-row").forEach(row=>{
-        row.addEventListener("click", async ()=>{
+        row.addEventListener("click", async (e)=>{
+          if(e.target.closest(".row-del")) return;
           const id = row.getAttribute("data-id");
           const item = dayData.items.find(i=>i.id===id);
           if(!item) return;
           item.done = !item.done;
+          dayDirty = true;
+          renderChecklist();
+          await saveDay();
+        });
+      });
+    }
+    if(role==="padres"){
+      el.querySelectorAll(".row-del").forEach(btn=>{
+        btn.addEventListener("click", async (e)=>{
+          e.stopPropagation();
+          const id = btn.getAttribute("data-id");
+          dayData.items = dayData.items.filter(i=>i.id!==id);
           dayDirty = true;
           renderChecklist();
           await saveDay();
@@ -671,10 +701,82 @@
     await setJSON(TASKS_KEY, templateTasks);
     document.getElementById("newTaskInput").value = "";
     renderTemplate();
-    if(!dayData.locked){ dayData.items.push(itemFromTemplate(newTask)); await saveDay(); renderChecklist(); }
+    if(!dayData.locked || role==="padres"){ dayData.items.push(itemFromTemplate(newTask)); await saveDay(); renderChecklist(); }
   });
 
   // ---------- DOCS ----------
+  let pendingDocImages = [];
+  function compressImageFile(file){
+    return new Promise((resolve, reject)=>{
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = ()=>{
+        URL.revokeObjectURL(url);
+        const max = 960;
+        let w = img.width, h = img.height;
+        if(w > max || h > max){
+          const scale = max / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.62));
+      };
+      img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("image")); };
+      img.src = url;
+    });
+  }
+  function renderPendingDocImages(){
+    const el = document.getElementById("docImagePreview");
+    if(!el) return;
+    el.innerHTML = pendingDocImages.map((src, i)=>`
+      <div class="doc-photo-wrap">
+        <img src="${src}" alt="Vista previa">
+        <button type="button" class="doc-photo-del" data-i="${i}">✕</button>
+      </div>`).join("");
+    el.querySelectorAll(".doc-photo-del").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        pendingDocImages.splice(Number(btn.getAttribute("data-i")), 1);
+        renderPendingDocImages();
+      });
+    });
+    el.querySelectorAll("img").forEach(img=>{
+      img.addEventListener("click", ()=> openLightbox(img.src));
+    });
+  }
+  function openLightbox(src){
+    const box = document.getElementById("imgLightbox");
+    const img = document.getElementById("imgLightboxImg");
+    if(!box || !img) return;
+    img.src = src;
+    box.classList.remove("hidden");
+  }
+  function closeLightbox(){
+    const box = document.getElementById("imgLightbox");
+    const img = document.getElementById("imgLightboxImg");
+    if(img) img.src = "";
+    if(box) box.classList.add("hidden");
+  }
+  const imgLightbox = document.getElementById("imgLightbox");
+  if(imgLightbox){
+    imgLightbox.addEventListener("click", (e)=>{ if(e.target.id==="imgLightbox" || e.target.id==="imgLightboxClose") closeLightbox(); });
+  }
+  const docImagesInput = document.getElementById("docImages");
+  if(docImagesInput){
+    docImagesInput.addEventListener("change", async (e)=>{
+      const files = Array.from(e.target.files || []);
+      e.target.value = "";
+      for(const file of files){
+        if(pendingDocImages.length >= 4) break;
+        try{ pendingDocImages.push(await compressImageFile(file)); }
+        catch(err){ alert("No se pudo leer esa imagen. Prueba una foto JPG o PNG."); }
+      }
+      renderPendingDocImages();
+    });
+  }
   function renderDocFilters(){
     const el = document.getElementById("docFilters");
     const cats = ["Todos", ...DOC_CATS];
@@ -695,20 +797,67 @@
           <button class="item-del" data-id="${d.id}">✕</button>
         </div>
         <div class="item-tag">${escapeHtml(d.category||"Otro")}</div>
-        <div class="item-body">${escapeHtml(d.body)}</div>
+        ${d.body ? `<div class="item-body">${escapeHtml(d.body)}</div>` : ""}
+        ${Array.isArray(d.images) && d.images.length ? `<div class="doc-photos">${d.images.map((src,i)=>`
+          <div class="doc-photo-wrap">
+            <img src="${src}" alt="${escapeHtml(d.title)}" data-id="${d.id}" data-i="${i}">
+            ${role==="padres" ? `<button type="button" class="doc-photo-del" data-id="${d.id}" data-i="${i}">✕</button>` : ""}
+          </div>`).join("")}</div>` : ""}
+        ${role==="padres" ? `<label class="toggle-btn doc-add-photo" style="margin:10px 0 0;">📷 Agregar foto<input type="file" accept="image/*" data-id="${d.id}" class="file-hidden"></label>` : ""}
       </div>`).join("");
     el.querySelectorAll(".item-del").forEach(btn=>{
       btn.addEventListener("click", async ()=>{ docs = docs.filter(d=>d.id!==btn.getAttribute("data-id")); await setJSON(DOCS_KEY, docs); renderDocs(); renderInicio(); });
+    });
+    el.querySelectorAll(".doc-photos img").forEach(img=>{
+      img.addEventListener("click", ()=> openLightbox(img.src));
+    });
+    el.querySelectorAll(".doc-photos .doc-photo-del").forEach(btn=>{
+      btn.addEventListener("click", async (e)=>{
+        e.stopPropagation();
+        const doc = docs.find(x=>x.id===btn.getAttribute("data-id"));
+        if(!doc || !Array.isArray(doc.images)) return;
+        doc.images.splice(Number(btn.getAttribute("data-i")), 1);
+        doc.updatedAt = new Date().toISOString();
+        await setJSON(DOCS_KEY, docs);
+        renderDocs();
+      });
+    });
+    el.querySelectorAll("input[type=file][data-id]").forEach(input=>{
+      input.addEventListener("change", async (e)=>{
+        const file = e.target.files && e.target.files[0];
+        e.target.value = "";
+        if(!file) return;
+        const doc = docs.find(x=>x.id===input.getAttribute("data-id"));
+        if(!doc) return;
+        if(!Array.isArray(doc.images)) doc.images = [];
+        if(doc.images.length >= 4){ alert("Este documento ya tiene 4 fotos."); return; }
+        try{
+          doc.images.push(await compressImageFile(file));
+          doc.updatedAt = new Date().toISOString();
+          const ok = await setJSON(DOCS_KEY, docs);
+          if(!ok){ doc.images.pop(); alert("La foto es muy pesada para guardar. Prueba otra más pequeña."); }
+          renderDocs();
+        }catch(err){
+          alert("No se pudo leer esa imagen. Prueba una foto JPG o PNG.");
+        }
+      });
     });
   }
   document.getElementById("addDocBtn").addEventListener("click", async ()=>{
     const category = document.getElementById("docCategory").value;
     const title = document.getElementById("docTitle").value.trim();
     const body = document.getElementById("docBody").value.trim();
-    if(!title || !body) return;
-    docs.push({ id:uid(), category, title, body, updatedAt:new Date().toISOString() });
-    await setJSON(DOCS_KEY, docs);
+    if(!title || (!body && !pendingDocImages.length)) return;
+    docs.push({ id:uid(), category, title, body, images: pendingDocImages.slice(), updatedAt:new Date().toISOString() });
+    const ok = await setJSON(DOCS_KEY, docs);
+    if(!ok){
+      docs.pop();
+      alert("No se pudo guardar. Si hay muchas fotos, borra una e inténtalo de nuevo.");
+      return;
+    }
     document.getElementById("docTitle").value=""; document.getElementById("docBody").value="";
+    pendingDocImages = [];
+    renderPendingDocImages();
     renderDocs();
   });
 
@@ -1224,6 +1373,7 @@
 
   // ---------- INICIO / BIENVENIDA ----------
   async function renderInicio(){
+    updatePadresOnlyUI();
     document.getElementById("greetText").textContent = role==="niñera" ? "¡Bienvenida, Dayris! 👋" : "¡Bienvenidos! 👋";
     document.getElementById("greetDate").textContent = fmtDateLong(today);
 
@@ -1251,8 +1401,28 @@
       cards += `<div class="reminder-card event"><span class="ric">📅</span><div><b>${escapeHtml(ev.title)}</b><span class="sub">${fmtDateShort(ev.date)}${ev.time?" · "+fmtTime12(ev.time):""}</span></div></div>`;
     });
 
+    const visibleManual = (reminders || []).filter(r=>{
+      if(!r || !r.text) return false;
+      if(!r.date) return true;
+      const ed = parseIsoLocal(r.date);
+      if(!ed) return true;
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      return ed >= start && ed <= in7;
+    }).sort((a,b)=> (a.date||"").localeCompare(b.date||""));
+    visibleManual.forEach(r=>{
+      const when = r.date ? (r.date===todayIso ? "Hoy" : fmtDateShort(r.date)) : "Siempre visible";
+      cards += `<div class="reminder-card manual"><span class="ric">📝</span><div style="flex:1;"><b>${escapeHtml(r.text)}</b><span class="sub">${when}</span></div>${role==="padres"?`<button type="button" class="item-del rem-del" data-id="${r.id}">✕</button>`:""}</div>`;
+    });
+
     if(!cards) cards = `<div class="empty" style="padding:14px 4px;"><p>No hay recordatorios por ahora. ¡Buen día! 🌤️</p></div>`;
     remindersEl.innerHTML = cards;
+    remindersEl.querySelectorAll(".rem-del").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        reminders = reminders.filter(r=>r.id!==btn.getAttribute("data-id"));
+        await setJSON(REMINDERS_KEY, reminders);
+        renderInicio();
+      });
+    });
 
     const todayDay = await getJSON(DAY_PREFIX + todayIso, null);
     const todayItems = todayDay && Array.isArray(todayDay.items) ? todayDay.items : null;
@@ -1267,6 +1437,16 @@
       <div class="stat-mini"><span class="smi">🌴</span><span class="smt">Solicitudes pendientes</span><span class="smv">${pendingLibres}</span></div>
     `;
   }
+  document.getElementById("addRemBtn").addEventListener("click", async ()=>{
+    const text = document.getElementById("remText").value.trim();
+    const date = document.getElementById("remDate").value;
+    if(!text) return;
+    reminders.push({ id: uid(), text, date: date || "", createdAt: new Date().toISOString() });
+    await setJSON(REMINDERS_KEY, reminders);
+    document.getElementById("remText").value = "";
+    document.getElementById("remDate").value = "";
+    renderInicio();
+  });
 
   // ---------- INIT ----------
   function waitForStorage(timeoutMs){
@@ -1282,7 +1462,7 @@
 
   // ---------- MANUAL BACKUP (always works, no dependency on window.storage) ----------
   function collectState(){
-    return { templateTasks, docs, events, recipes, libres, dayIso: isoLocal(currentDate), day: dayData, savedAt: new Date().toISOString() };
+    return { templateTasks, docs, events, recipes, libres, reminders, dayIso: isoLocal(currentDate), day: dayData, savedAt: new Date().toISOString() };
   }
   function applyState(obj){
     if(obj.templateTasks) templateTasks = obj.templateTasks;
@@ -1290,6 +1470,7 @@
     if(obj.events) events = obj.events;
     if(obj.recipes) recipes = obj.recipes;
     if(obj.libres) libres = obj.libres;
+    if(obj.reminders) reminders = obj.reminders;
     if(obj.day) dayData = obj.day;
     renderDocFilters(); renderDocs();
     renderCalendar(); renderDayDetail();
@@ -1302,6 +1483,7 @@
     setJSON(EVENTS_KEY, events, true);
     setJSON(RECIPES_KEY, recipes, true);
     setJSON(LIBRES_KEY, libres, true);
+    setJSON(REMINDERS_KEY, reminders, true);
     saveDay();
   }
   function copyTextFallback(text){
@@ -1372,10 +1554,12 @@
     events = await getJSON(EVENTS_KEY, []);
     recipes = await getJSON(RECIPES_KEY, []);
     libres = await getJSON(LIBRES_KEY, []);
+    reminders = await getJSON(REMINDERS_KEY, []);
     if(!Array.isArray(docs)) docs = [];
     if(!Array.isArray(events)) events = [];
     if(!Array.isArray(recipes)) recipes = [];
     if(!Array.isArray(libres)) libres = [];
+    if(!Array.isArray(reminders)) reminders = [];
     const saved = await getJSON(DAY_PREFIX + isoLocal(currentDate), null);
     if(saved){
       if(!saved.notes) saved.notes = {humor:"",cambios:"",situaciones:""};
@@ -1444,10 +1628,12 @@
     events = await getJSON(EVENTS_KEY, []);
     recipes = await getJSON(RECIPES_KEY, []);
     libres = await getJSON(LIBRES_KEY, []);
+    reminders = await getJSON(REMINDERS_KEY, []);
     if(!Array.isArray(docs)) docs = [];
     if(!Array.isArray(events)) events = [];
     if(!Array.isArray(recipes)) recipes = [];
     if(!Array.isArray(libres)) libres = [];
+    if(!Array.isArray(reminders)) reminders = [];
 
     await goToDay(new Date());
     renderDocFilters(); renderDocs();

@@ -104,13 +104,25 @@ body.kb-open{padding-bottom:24px;}
 .simple-text{font-size:14px; line-height:1.4; padding-top:1px;}
 .simple-text.done{color:var(--ink-soft); text-decoration:line-through;}
 .row-del{background:none;border:none;color:var(--ink-soft);opacity:0.4;font-size:13px;cursor:pointer;margin-left:auto;padding:0 2px;}
+.simple-row .row-del{opacity:0.7; color:var(--red); min-width:32px; min-height:32px; font-size:16px;}
 
 .reminder-card{ border-radius:16px; padding:13px 14px; margin-bottom:10px; display:flex; gap:10px; align-items:flex-start; }
 .reminder-card.cook{background:var(--comida-soft); color:#7A4128;}
 .reminder-card.event{background:var(--blue-soft); color:#3E5A6C;}
+.reminder-card.manual{background:var(--green-soft); color:var(--green);}
 .reminder-card .ric{font-size:18px;}
 .reminder-card b{display:block; font-size:13.5px; margin-bottom:2px;}
 .reminder-card span.sub{font-size:12px; opacity:0.85;}
+#manualReminderForm{ margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); }
+.doc-photos{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.doc-photo-wrap{ position:relative; width:78px; height:78px; }
+.doc-photo-wrap img{ width:78px; height:78px; object-fit:cover; border-radius:10px; border:1px solid var(--line); cursor:pointer; }
+.doc-photo-del{ position:absolute; top:-6px; right:-6px; width:22px; height:22px; border:none; border-radius:50%; background:var(--red); color:#fff; font-size:11px; cursor:pointer; }
+.doc-add-photo{ margin-top:10px !important; margin-bottom:0 !important; }
+.img-lightbox{ position:fixed; inset:0; background:rgba(51,46,39,0.88); z-index:120; display:flex; align-items:center; justify-content:center; padding:24px; }
+.img-lightbox.hidden{display:none;}
+.img-lightbox img{ max-width:100%; max-height:85dvh; border-radius:12px; }
+.img-lightbox-close{ position:absolute; top:max(16px, env(safe-area-inset-top)); right:16px; width:36px; height:36px; border:none; border-radius:50%; background:#fff; color:var(--ink); font-size:16px; cursor:pointer; }
 
 .notes-field{margin-bottom:13px;} .notes-field:last-child{margin-bottom:0;}
 .notes-field label{ display:block; font-size:11.5px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:5px; }

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F2E7" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Nido" />
+<meta name="format-detection" content="telephone=no" />
+<meta name="description" content="Centro de cuidado de Amir para Dayris y la familia." />
+<title>Nido 💙</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="load-overlay" id="loadOverlay">
+  <div class="lo-ic">🐣</div>
+  <div class="lo-txt">Conectando…</div>
+</div>
+
+<div class="pin-modal-bg hidden" id="pinModalBg">
+  <div class="pin-modal">
+    <div class="pm-ic">🔒</div>
+    <h3>Acceso de Padres</h3>
+    <p>Ingresa el PIN de 4 dígitos para entrar a la vista de Padres.</p>
+    <input type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="pinInput" class="pin-input" placeholder="••••" autocomplete="one-time-code" enterkeyhint="done">
+    <div class="pin-error" id="pinError">PIN incorrecto. Intenta de nuevo.</div>
+    <div class="pin-btn-row">
+      <button class="pin-cancel" id="pinCancel">Cancelar</button>
+      <button class="pin-confirm" id="pinConfirm">Entrar</button>
+    </div>
+  </div>
+</div>
+<div class="app" id="app">
+  <div class="global-error" id="globalError">
+    <div id="globalErrorText">No se pudo guardar.</div>
+    <div style="margin-top:6px;"><span id="retryStorage" style="text-decoration:underline; cursor:pointer; font-weight:800;">Probar de nuevo</span></div>
+  </div>
+
+  <!-- BIENVENIDA TAB -->
+  <div class="tab-content active" id="tab-inicio">
+    <div class="hero">
+      <div class="hero-top">
+        <h1><img class="avatar-icon" src="amir.png" alt="Amir"> Centro de Amir</h1>
+        <div class="role-toggle">
+          <button id="roleNineraH" class="active">Niñera</button>
+          <button id="rolePadresH">Padres</button>
+        </div>
+      </div>
+    </div>
+    <div class="card ios-install" id="iosInstallCard" hidden>
+      <div class="sec-heading" style="margin-top:0;">📲 Instalar en iPhone</div>
+      <ol class="install-steps">
+        <li>Abre este enlace en <b>Safari</b> (no en Chrome ni Instagram).</li>
+        <li>Toca el botón <b>Compartir</b> (cuadrado con flecha hacia arriba).</li>
+        <li>Elige <b>Añadir a pantalla de inicio</b>.</li>
+        <li>Toca <b>Añadir</b>. Entra siempre por el icono <b>Nido</b>.</li>
+      </ol>
+      <p class="install-note">Así no se borra al cerrar Safari y se ve a pantalla completa, sin barra de dirección.</p>
+    </div>
+    <div class="card">
+      <div class="greet" id="greetText">¡Bienvenida! 👋</div>
+      <div class="greet-sub" id="greetDate">—</div>
+      <div id="reminders"></div>
+    </div>
+    <div class="card">
+      <div class="sec-heading" style="margin-top:0;">📊 Resumen</div>
+      <div id="dashStats"></div>
+    </div>
+    <div class="card" id="diagCard">
+      <div class="sec-heading" style="margin-top:0;">🔧 Estado del guardado</div>
+      <div id="diagStatus" style="font-size:12.5px;line-height:1.6;color:var(--ink-soft);"></div>
+    </div>
+    <div class="card">
+      <div class="sec-heading" style="margin-top:0;">💾 Respaldo manual</div>
+      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">En iPhone: comparte el archivo a Archivos o Notas. Para restaurar, pega el texto o elige el archivo guardado.</p>
+      <button class="toggle-btn" id="copyBackupBtn" style="margin-bottom:10px;">📤 Compartir o copiar respaldo</button>
+      <div id="backupMsg" style="font-size:12px;font-weight:700;color:var(--green);display:none;margin-bottom:10px;">¡Listo! Guárdalo en Notas o Archivos.</div>
+      <label class="toggle-btn" for="restoreFileInput" style="margin-bottom:10px;">📁 Restaurar desde un archivo</label>
+      <input type="file" id="restoreFileInput" accept="application/json,.json,text/plain" class="file-hidden">
+      <textarea id="backupPaste" placeholder="O pega aquí un respaldo copiado antes…" style="width:100%;min-height:70px;border:1.5px solid var(--line);background:var(--paper);border-radius:11px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:16px;color:var(--ink);margin-bottom:8px;"></textarea>
+      <button class="submit-btn" id="restoreBackupBtn">Restaurar desde este texto</button>
+    </div>
+  </div>
+
+  <!-- HOY TAB -->
+  <div class="tab-content" id="tab-hoy">
+    <div class="hero">
+      <div class="hero-top">
+        <h1><img class="avatar-icon" src="amir.png" alt="Amir"> Centro de Amir</h1>
+        <div class="role-toggle">
+          <button id="roleNinera" class="active">Niñera</button>
+          <button id="rolePadres">Padres</button>
+        </div>
+      </div>
+      <div class="banner" id="signedBanner" style="display:none;">
+        <span>Día firmado y guardado.</span>
+        <button id="dismissBanner">✕</button>
+      </div>
+      <div class="date-nav">
+        <button class="nav-arrow" id="prevDay">‹</button>
+        <div class="date-center"><div class="day-label" id="dayLabel">—</div></div>
+        <button class="nav-arrow" id="nextDay">›</button>
+      </div>
+      <div style="text-align:center;"><span class="goto-today" id="gotoToday" style="display:none;">Ir a hoy</span></div>
+      <div class="week-strip" id="weekStrip"></div>
+      <div class="info-note">
+        <span class="ic">ℹ️</span>
+        <span>La leche, los cambios de pañal, las siestas y el tummy time se registran en <b>Huckleberry</b>. Este checklist es solo para actividades y tareas del hogar.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="progress-row">
+        <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%;"></div></div>
+        <div class="progress-count" id="progressCount">0/0</div>
+      </div>
+      <div class="lock-row" id="lockRow" style="display:none;">
+        <span id="lockText">🔒 Firmado — checklist bloqueado</span>
+        <span class="unlock-link" id="unlockLink">Desbloquear</span>
+      </div>
+
+      <div class="important-toggle" id="importantToggle">
+        <span class="imp-star">⭐</span>
+        <span class="imp-label">Marcar este día como importante</span>
+      </div>
+
+      <div class="sec-heading">Actividades del Día</div>
+      <div id="listActividades"></div>
+
+      <div class="sec-heading">Tareas del Hogar</div>
+      <div id="listHogar"></div>
+    </div>
+
+    <div class="card">
+      <div class="sec-heading" style="margin-top:0;">Observaciones importantes</div>
+      <div class="notes-field"><label>Humor del bebé</label><div id="notesHumorWrap"></div></div>
+      <div class="notes-field"><label>Cambios físicos o molestias</label><div id="notesCambiosWrap"></div></div>
+      <div class="notes-field"><label>Situaciones especiales / incidentes</label><div id="notesSituacionesWrap"></div></div>
+      <button class="sign-btn" id="signBtn">Firmar y completar el día</button>
+    </div>
+
+    <div class="card">
+      <div class="sec-heading" style="margin-top:0;">📌 Días importantes</div>
+      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">Busca y revisa todos los días marcados como importantes.</p>
+      <button class="toggle-btn" id="toggleImportantList">🔍 Ver días importantes</button>
+      <div id="importantDaysList" style="display:none; margin-top:12px;"></div>
+    </div>
+
+    <div class="card" id="templateCard" style="display:none;">
+      <div class="section-title" style="margin-top:0;">🛠️ Plantilla de tareas</div>
+      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;">Los cambios aquí se aplican a hoy y a los días futuros que aún no estén firmados.</p>
+      <div class="add-row">
+        <select id="newTaskSection">
+          <option value="actividades">Actividades del Día</option>
+          <option value="hogar">Tareas del Hogar</option>
+        </select>
+        <input type="text" id="newTaskInput" placeholder="Nombre de la tarea…" />
+        <button class="add-btn" id="addTaskBtn">Agregar tarea</button>
+      </div>
+      <div id="tplList"></div>
+    </div>
+  </div>
+
+  <!-- DOCS TAB -->
+  <div class="tab-content" id="tab-docs">
+    <div class="top-card">
+      <h1>📄 Docs</h1>
+      <div class="sub">Horario de Amir y documentos importantes</div>
+    </div>
+    <div class="pill-scroll" id="docFilters"></div>
+    <div class="new-form">
+      <div class="field"><label>Categoría</label>
+        <select id="docCategory">
+          <option>Horario del Bebé</option>
+          <option>Contrato</option>
+          <option>Actividades de Desarrollo</option>
+          <option>Resúmenes del Doctor</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div class="field"><label>Título</label><input type="text" id="docTitle" placeholder="Ej. Horario de Amir"></div>
+      <div class="field"><label>Contenido / enlace</label><textarea id="docBody" placeholder="Escribe el contenido, pega el texto o pega un enlace al archivo…"></textarea></div>
+      <button class="submit-btn" id="addDocBtn">Guardar documento</button>
+    </div>
+    <div id="docsList"></div>
+  </div>
+
+  <!-- CALENDARIO TAB -->
+  <div class="tab-content" id="tab-cal">
+    <div class="top-card">
+      <h1>📅 Calendario</h1>
+      <div class="sub">Citas y eventos de Amir</div>
+    </div>
+    <div class="cal-card">
+      <div class="cal-head">
+        <button id="prevMonth">‹</button>
+        <div class="cal-title" id="calTitle">—</div>
+        <button id="nextMonth">›</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+    <button class="toggle-btn" id="toggleEventForm">＋ Agregar cita o salida</button>
+    <div class="day-detail-title" id="dayDetailTitle">—</div>
+    <div id="dayDetailList"></div>
+  </div>
+
+  <!-- RECETAS TAB -->
+  <div class="tab-content" id="tab-recetas">
+    <div class="top-card">
+      <h1>🍽️ Recetas para Amir</h1>
+    </div>
+    <button class="toggle-btn" id="toggleRecForm">＋ Agregar receta</button>
+    <div class="pill-scroll" id="recFilters"></div>
+    <div id="recetasList"></div>
+  </div>
+
+  <!-- LIBRES TAB -->
+  <div class="tab-content" id="tab-libres">
+    <div class="top-card">
+      <h1>🌴 Tiempo Libre</h1>
+      <div class="sub">Vacaciones, holidays y días extras</div>
+    </div>
+
+    <div class="benefits-card">
+      <div class="sec-heading" style="margin-top:0;">💼 Beneficios de Dayris</div>
+      <div class="benefit-row"><span class="b-ic">🏖️</span><span>2 semanas pagadas al año (10 días laborables)</span></div>
+      <div class="benefit-row"><span class="b-ic">🎉</span><span>Holidays — pagos estipulados en el contrato</span></div>
+      <div class="benefit-row"><span class="b-ic">🧳</span><span>Días extras — cualquier día libre adicional que la familia decida dar (ej. vacaciones familiares) también se paga completo</span></div>
+      <div class="benefit-row"><span class="b-ic">💰</span><span>2 bonos al año</span></div>
+      <div class="bonus-list">
+        <div class="bonus-item given">
+          <span>Bono 1 — $500</span>
+          <span class="status-pill aprobado">Entregado · marzo</span>
+        </div>
+        <div class="bonus-item" id="bonus2Row">
+          <span>Bono 2</span>
+          <span class="status-pill pendiente" id="bonus2Status">Pendiente</span>
+        </div>
+      </div>
+      <div class="benefit-row"><span class="b-ic">🕐</span><span>Horario: 8:00 am – 4:00 pm</span></div>
+      <div class="benefit-note">📋 Según el acuerdo firmado: avisar con 2 semanas de anticipación cuando sea un día planeado.</div>
+
+      <div class="balance-box">
+        <div class="balance-top">
+          <span>Días disponibles este año</span>
+          <span class="balance-num" id="balanceNum">10/10</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="balanceFill" style="width:0%;"></div></div>
+        <div class="balance-detail" id="balanceDetail"></div>
+      </div>
+    </div>
+
+    <button class="toggle-btn" id="toggleLibreForm">＋ Solicitar tiempo libre</button>
+    <div id="libresList"></div>
+  </div>
+
+</div>
+
+<div class="form-modal-bg hidden" id="eventFormBg">
+  <div class="form-modal">
+    <div class="form-modal-head"><h3>Nuevo evento</h3><button class="form-modal-close" id="closeEventForm">✕</button></div>
+    <div class="new-form" id="eventForm">
+      <div class="field-row">
+        <div class="field"><label>Fecha</label><input type="date" id="evDate"></div>
+        <div class="field"><label>Hora</label><input type="time" id="evTime"></div>
+      </div>
+      <div class="field"><label>Título</label><input type="text" id="evTitle" placeholder="Ej. Cita con el pediatra"></div>
+      <div class="field"><label>Notas (opcional)</label><textarea id="evNotes" placeholder="Detalles adicionales…"></textarea></div>
+      <button class="submit-btn" id="addEventBtn">Agregar evento</button>
+    </div>
+  </div>
+</div>
+
+<div class="form-modal-bg hidden" id="recFormBg">
+  <div class="form-modal">
+    <div class="form-modal-head"><h3 id="recFormTitle">Nueva receta</h3><button class="form-modal-close" id="closeRecForm">✕</button></div>
+    <div class="new-form" id="recForm">
+      <div class="field"><label>Tipo</label>
+        <select id="recCategory">
+          <option>Desayunos</option>
+          <option>Meriendas</option>
+          <option>Res</option>
+          <option>Cordero</option>
+          <option>Pollo</option>
+          <option>Pavo</option>
+          <option>Pescados</option>
+          <option>Mariscos</option>
+          <option>Batidos</option>
+          <option>Pastas</option>
+          <option>Granos</option>
+        </select>
+      </div>
+      <div class="field"><label>Nombre</label><input type="text" id="recName" placeholder="Ej. Puré de camote y manzana"></div>
+      <div class="field"><label>Edad recomendada</label><input type="text" id="recAge" placeholder="Ej. 8+ meses"></div>
+      <div class="field"><label>Ingredientes (uno por línea)</label><textarea id="recIng" placeholder="1 camote pequeño&#10;1/2 manzana&#10;1 pizca de canela"></textarea></div>
+      <div class="field"><label>Preparación (un paso por línea)</label><textarea id="recSteps" placeholder="Pelar y cortar en cubos&#10;Cocinar al vapor 10-12 min&#10;Hacer puré hasta suavizar"></textarea></div>
+      <div class="field"><label>Notas (opcional)</label><textarea id="recNotes" placeholder="Alergias, texturas, etc."></textarea></div>
+      <button class="submit-btn" id="addRecBtn">Guardar receta</button>
+    </div>
+  </div>
+</div>
+
+<div class="form-modal-bg hidden" id="libreFormBg">
+  <div class="form-modal">
+    <div class="form-modal-head"><h3>Solicitar tiempo libre</h3><button class="form-modal-close" id="closeLibreForm">✕</button></div>
+    <div class="type-select-outer">
+      <label class="type-select-label">Tipo de tiempo libre</label>
+      <div class="pill-row" id="libCategoryRow">
+        <button type="button" class="pill-opt active" data-val="vacacion">Tiempo Libre</button>
+        <button type="button" class="pill-opt" data-val="holiday">Holidays</button>
+        <button type="button" class="pill-opt" data-val="dia_extra">Días Extras</button>
+      </div>
+    </div>
+    <div class="type-select-outer" id="vacTypeOuter">
+      <label class="type-select-label">Tipo</label>
+      <div class="pill-row" id="libTypeRow">
+        <button type="button" class="pill-opt active" data-val="completo">Completo</button>
+        <button type="button" class="pill-opt" data-val="parcial">Parcial</button>
+      </div>
+    </div>
+    <div class="new-form" id="libreForm">
+      <div id="libCompletoFields">
+        <div class="field"><label>Fecha de inicio</label><input type="date" id="libStart"></div>
+        <div class="field"><label>Fecha de fin</label><input type="date" id="libEnd"></div>
+      </div>
+      <div id="libParcialFields" style="display:none;">
+        <div class="field"><label>Fecha</label><input type="date" id="libDate"></div>
+        <div class="field"><label>Hora de entrada</label><input type="time" id="libHoraEntrada"></div>
+        <div class="field"><label>Hora de salida</label><input type="time" id="libHoraSalida"></div>
+      </div>
+      <div class="field"><label>Motivo (opcional)</label><textarea id="libReason" placeholder="Motivo…"></textarea></div>
+      <button class="submit-btn" id="addLibreBtn">Enviar solicitud</button>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-nav">
+  <button class="nav-btn active" data-tab="inicio"><span class="nav-ic">🏠</span>Inicio</button>
+  <button class="nav-btn" data-tab="hoy"><span class="nav-ic">📋</span>Hoy</button>
+  <button class="nav-btn" data-tab="docs"><span class="nav-ic">📄</span>Docs</button>
+  <button class="nav-btn" data-tab="cal"><span class="nav-ic">📅</span>Calend.</button>
+  <button class="nav-btn" data-tab="recetas"><span class="nav-ic">🍽️</span>Recetas</button>
+  <button class="nav-btn" data-tab="libres"><span class="nav-ic">🌴</span>Libres</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

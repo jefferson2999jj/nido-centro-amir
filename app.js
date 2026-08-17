@@ -885,7 +885,14 @@
     const category = document.getElementById("docCategory").value;
     const title = document.getElementById("docTitle").value.trim();
     const body = document.getElementById("docBody").value.trim();
-    if(!title || (!body && !pendingDocImages.length)) return;
+    if(!title){
+      alert("Ponle un título al documento.");
+      return;
+    }
+    if(!body && !pendingDocImages.length){
+      alert("Escribe el documento o sube al menos una foto, luego toca Guardar.");
+      return;
+    }
     docs.push({ id:uid(), category, title, body, images: pendingDocImages.slice(), updatedAt:new Date().toISOString() });
     const ok = await setJSON(DOCS_KEY, docs);
     if(!ok){

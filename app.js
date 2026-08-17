@@ -843,7 +843,7 @@
             <img src="${src}" alt="${escapeHtml(d.title)}" data-id="${d.id}" data-i="${i}">
             ${role==="padres" ? `<button type="button" class="doc-photo-del" data-id="${d.id}" data-i="${i}">✕</button>` : ""}
           </div>`).join("")}</div>` : ""}
-        ${role==="padres" ? `<label class="toggle-btn doc-add-photo" style="margin:10px 0 0;">📷 Agregar foto<input type="file" accept="image/*" data-id="${d.id}" class="file-hidden"></label>` : ""}
+        ${role==="padres" ? `<label class="toggle-btn doc-add-photo" style="margin:10px 0 0;">📷 Agregar foto<input type="file" accept="image/*" data-id="${d.id}" class="file-hidden" tabindex="-1"></label>` : ""}
       </div>`).join("");
     el.querySelectorAll(".item-del").forEach(btn=>{
       btn.addEventListener("click", async ()=>{ docs = docs.filter(d=>d.id!==btn.getAttribute("data-id")); await setJSON(DOCS_KEY, docs); renderDocs(); renderInicio(); });
@@ -1731,7 +1731,11 @@
 
   function isTypingField(){
     const a = document.activeElement;
-    return !!(a && a.matches && a.matches("input, textarea, select"));
+    if(!a || !a.matches) return false;
+    if(a.matches("textarea")) return true;
+    if(!a.matches("input")) return false;
+    const t = (a.getAttribute("type") || "text").toLowerCase();
+    return t==="text" || t==="tel" || t==="search" || t==="password" || t==="email" || t==="number" || t==="url" || t==="";
   }
   function syncKeyboardInset(){
     const vv = window.visualViewport;
@@ -1739,29 +1743,17 @@
     const typing = isTypingField();
     document.documentElement.style.setProperty("--kb", typing ? kb + "px" : "0px");
     document.body.classList.toggle("kb-open", typing);
-    const nav = document.querySelector(".bottom-nav");
-    if(nav){
-      const inset = typing ? 0 : kb;
-      nav.style.transform = inset ? "translate3d(0," + (-inset) + "px,0)" : "translate3d(0,0,0)";
-    }
   }
   if(window.visualViewport){
     window.visualViewport.addEventListener("resize", syncKeyboardInset);
     window.visualViewport.addEventListener("scroll", syncKeyboardInset);
   }
-  document.addEventListener("focusin", (e)=>{
-    if(e.target && e.target.matches && e.target.matches("input, textarea, select")){
-      document.body.classList.add("kb-open");
-      syncKeyboardInset();
-    }
-  });
+  document.addEventListener("focusin", ()=> syncKeyboardInset());
   document.addEventListener("focusout", ()=>{
     setTimeout(()=>{
       if(!isTypingField()){
         document.body.classList.remove("kb-open");
         document.documentElement.style.setProperty("--kb", "0px");
-        const nav = document.querySelector(".bottom-nav");
-        if(nav) nav.style.transform = "translate3d(0,0,0)";
         if(pendingUiRefresh) refreshLiveFromStorage();
       }
     }, 50);

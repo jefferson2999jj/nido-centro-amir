@@ -28,13 +28,25 @@ body{
 }
 button{font-family:'Inter', -apple-system, sans-serif; -webkit-tap-highlight-color:rgba(58,77,46,0.12); touch-action:manipulation;}
 input, textarea, select{font-family:'Inter', -apple-system, sans-serif; font-size:16px; border-radius:11px;}
-body.kb-open .bottom-nav{display:none;}
-body.kb-open{padding-bottom:24px;}
 .ios-install[hidden]{display:none !important;}
 .install-steps{margin:0 0 10px; padding-left:20px; font-size:13.5px; line-height:1.55; color:var(--ink);}
 .install-steps li{margin-bottom:6px;}
 .install-note{font-size:12px; color:var(--ink-soft); margin:0; line-height:1.5;}
-.file-hidden{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; white-space:nowrap;}
+.file-hidden{
+  position:fixed !important;
+  left:-100vw !important;
+  top:0 !important;
+  width:0 !important;
+  height:0 !important;
+  opacity:0 !important;
+  overflow:hidden !important;
+  pointer-events:none;
+  z-index:-1;
+  border:0;
+  padding:0;
+  margin:0;
+}
+.file-hidden::-webkit-file-upload-button{display:none;}
 .app{max-width:480px;margin:0 auto;}
 .tab-content{display:none;} .tab-content.active{display:block;}
 
@@ -251,7 +263,7 @@ body.kb-open{padding-bottom:24px;}
 .stat-mini .smt{font-size:13.5px; flex:1;}
 .stat-mini .smv{font-family:'Lora',serif; font-weight:700; font-size:13.5px; color:var(--green);}
 
-.bottom-nav{ position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--line); display:flex; justify-content:space-around; padding:8px 2px calc(11px + env(safe-area-inset-bottom)); z-index:90; padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); transform:translate3d(0,0,0); -webkit-backface-visibility:hidden; }
+.bottom-nav{ position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--line); display:flex; justify-content:space-around; padding:8px 2px max(11px, env(safe-area-inset-bottom, 0px)); z-index:90; padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); }
 .nav-btn{ background:none; border:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--ink-soft); font-family:'Inter',sans-serif; font-size:9.5px; font-weight:700; cursor:pointer; padding:6px 4px; flex:1; min-height:44px; touch-action:manipulation; }
 .nav-btn .nav-ic{font-size:17px;}
 .nav-btn.active{color:var(--green);}

@@ -100,7 +100,7 @@
       <button class="toggle-btn" id="copyBackupBtn" style="margin-bottom:10px;">📤 Compartir o copiar respaldo</button>
       <div id="backupMsg" style="font-size:12px;font-weight:700;color:var(--green);display:none;margin-bottom:10px;">¡Listo! Guárdalo en Notas o Archivos.</div>
       <label class="toggle-btn" for="restoreFileInput" style="margin-bottom:10px;">📁 Restaurar desde un archivo</label>
-      <input type="file" id="restoreFileInput" accept="application/json,.json,text/plain" class="file-hidden">
+      <input type="file" id="restoreFileInput" accept="application/json,.json,text/plain" class="file-hidden" tabindex="-1">
       <textarea id="backupPaste" placeholder="O pega aquí un respaldo copiado antes…" style="width:100%;min-height:70px;border:1.5px solid var(--line);background:var(--paper);border-radius:11px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:16px;color:var(--ink);margin-bottom:8px;"></textarea>
       <button class="submit-btn" id="restoreBackupBtn">Restaurar desde este texto</button>
     </div>
@@ -206,7 +206,8 @@
       <div class="field"><label>Contenido / enlace</label><textarea id="docBody" placeholder="Escribe el contenido, pega el texto o pega un enlace al archivo…"></textarea></div>
       <div class="field" id="docImagesWrap" hidden>
         <label>Imágenes</label>
-        <input type="file" id="docImages" accept="image/*" multiple>
+        <label class="toggle-btn" for="docImages" style="margin-bottom:6px;">📷 Elegir fotos</label>
+        <input type="file" id="docImages" accept="image/*" multiple class="file-hidden" tabindex="-1">
         <p class="install-note" style="margin-top:6px;">Puedes subir fotos del contrato, recetas o papeles. Se comprimen solas.</p>
         <div class="doc-photos" id="docImagePreview"></div>
       </div>
@@ -366,7 +367,7 @@
 
 <div class="img-lightbox hidden" id="imgLightbox">
   <button type="button" class="img-lightbox-close" id="imgLightboxClose">✕</button>
-  <img id="imgLightboxImg" alt="Documento">
+  <img id="imgLightboxImg" alt="">
 </div>
 
 <div class="bottom-nav">

@@ -1487,11 +1487,21 @@
     }
   }
 
+  function isTypingField(){
+    const a = document.activeElement;
+    return !!(a && a.matches && a.matches("input, textarea, select"));
+  }
   function syncKeyboardInset(){
     const vv = window.visualViewport;
     const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
-    document.documentElement.style.setProperty("--kb", kb + "px");
-    if(kb > 60) document.body.classList.add("kb-open");
+    const typing = isTypingField();
+    document.documentElement.style.setProperty("--kb", typing ? kb + "px" : "0px");
+    document.body.classList.toggle("kb-open", typing);
+    const nav = document.querySelector(".bottom-nav");
+    if(nav){
+      const inset = typing ? 0 : kb;
+      nav.style.transform = inset ? "translate3d(0," + (-inset) + "px,0)" : "translate3d(0,0,0)";
+    }
   }
   if(window.visualViewport){
     window.visualViewport.addEventListener("resize", syncKeyboardInset);
@@ -1505,10 +1515,11 @@
   });
   document.addEventListener("focusout", ()=>{
     setTimeout(()=>{
-      const active = document.activeElement;
-      if(!active || !active.matches || !active.matches("input, textarea, select")){
+      if(!isTypingField()){
         document.body.classList.remove("kb-open");
         document.documentElement.style.setProperty("--kb", "0px");
+        const nav = document.querySelector(".bottom-nav");
+        if(nav) nav.style.transform = "translate3d(0,0,0)";
         if(pendingUiRefresh) refreshLiveFromStorage();
       }
     }, 50);

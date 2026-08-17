@@ -41,7 +41,7 @@
     return keys;
   }
   async function cloudGet(){
-    const res = await fetch(NIDO_CLOUD_URL + "?t=" + Date.now(), { cache: "no-store", credentials: "omit" });
+    const res = await fetch(NIDO_CLOUD_URL + "?t=" + Date.now(), { credentials: "omit" });
     if (!res.ok) throw new Error("nube GET " + res.status);
     const data = await res.json();
     if (!data || typeof data !== "object") return { v: 1, keys: {} };
@@ -53,7 +53,6 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(doc),
-      cache: "no-store",
       credentials: "omit"
     });
     if (!res.ok) throw new Error("nube POST " + res.status);
@@ -234,8 +233,33 @@
 
   // ---------- helpers ----------
   function isoLocal(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), day=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${day}`; }
+  function parseIsoLocal(dateStr){
+    if(!dateStr || typeof dateStr !== "string") return null;
+    const p = dateStr.split("-").map(Number);
+    if(p.length < 3 || !p[0] || !p[1] || !p[2]) return null;
+    return new Date(p[0], p[1]-1, p[2]);
+  }
+  function isoYear(dateStr){
+    const d = parseIsoLocal(dateStr);
+    return d ? d.getFullYear() : NaN;
+  }
+  function refreshToday(){
+    const next = new Date();
+    const rolled = isoLocal(next) !== isoLocal(today);
+    today = next;
+    if(rolled){
+      renderHeaderNav();
+      renderCalendar();
+      renderInicio();
+    }
+  }
   function fmtDateLong(d){ let s = new Intl.DateTimeFormat("es-ES", {weekday:"long", day:"numeric", month:"long"}).format(d); return s.charAt(0).toUpperCase() + s.slice(1); }
-  function fmtDateShort(dateStr){ const [y,m,d] = dateStr.split("-").map(Number); let s = new Intl.DateTimeFormat("es-ES", {weekday:"short", day:"numeric", month:"short"}).format(new Date(y,m-1,d)); return s.charAt(0).toUpperCase() + s.slice(1); }
+  function fmtDateShort(dateStr){
+    const d = parseIsoLocal(dateStr);
+    if(!d) return "";
+    let s = new Intl.DateTimeFormat("es-ES", {weekday:"short", day:"numeric", month:"short"}).format(d);
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
   function fmtTime12(hhmm){
     if(!hhmm) return "";
     const [h,m] = hhmm.split(":").map(Number);
@@ -363,7 +387,7 @@
   }
   function closePinModal(){ document.getElementById("pinModalBg").classList.add("hidden"); }
   function tryPin(){
-    const val = document.getElementById("pinInput").value.trim();
+    const val = document.getElementById("pinInput").value.replace(/\D/g,"").trim();
     if(val === PADRES_PIN){
       closePinModal();
       setRole("padres");
@@ -376,6 +400,10 @@
   document.getElementById("pinConfirm").addEventListener("click", tryPin);
   document.getElementById("pinCancel").addEventListener("click", closePinModal);
   document.getElementById("pinInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") tryPin(); });
+  document.getElementById("pinInput").addEventListener("input", (e)=>{
+    e.target.value = e.target.value.replace(/\D/g,"").slice(0,4);
+    if(e.target.value.length === 4) tryPin();
+  });
   document.getElementById("pinModalBg").addEventListener("click", (e)=>{ if(e.target.id==="pinModalBg") closePinModal(); });
 
   // ---------- form pop-ups ----------
@@ -396,9 +424,15 @@
   document.getElementById("dismissBanner").addEventListener("click", ()=>{ document.getElementById("signedBanner").style.display="none"; });
 
   async function goToDay(d){
+    captureNotesFromDom();
+    if(dayDirty){
+      await saveDay();
+      dayDirty = false;
+    }
     currentDate = new Date(d);
     document.getElementById("signedBanner").style.display = "none";
     dayData = await loadDay(currentDate);
+    dayDirty = false;
     renderHeaderNav();
     renderChecklist();
   }
@@ -458,14 +492,32 @@
     const saved = await getJSON(DAY_PREFIX + isoLocal(d), null);
     if(saved){
       if(!saved.notes) saved.notes = {humor:"",cambios:"",situaciones:""};
+      if(!Array.isArray(saved.items)) saved.items = templateTasks.map(itemFromTemplate);
       if(migrateTaskTexts(saved.items)) await setJSON(DAY_PREFIX + isoLocal(d), saved);
       return saved;
     }
     return { locked:false, signedAt:null, items: templateTasks.map(itemFromTemplate), notes:{humor:"",cambios:"",situaciones:""} };
   }
-  async function saveDay(){ await setJSON(DAY_PREFIX + isoLocal(currentDate), dayData); }
+  let dayDirty = false;
+  function captureNotesFromDom(){
+    document.querySelectorAll("textarea[data-key]").forEach(ta=>{
+      const k = ta.getAttribute("data-key");
+      if(!k) return;
+      if(!dayData.notes) dayData.notes = {humor:"",cambios:"",situaciones:""};
+      if(dayData.notes[k] !== ta.value){
+        dayData.notes[k] = ta.value;
+        dayDirty = true;
+      }
+    });
+  }
+  async function saveDay(){
+    captureNotesFromDom();
+    await setJSON(DAY_PREFIX + isoLocal(currentDate), dayData);
+    dayDirty = false;
+  }
 
   function renderChecklist(){
+    captureNotesFromDom();
     const total = dayData.items.length;
     const done = dayData.items.filter(i=>i.done).length;
     document.getElementById("progressCount").textContent = `${done}/${total}`;
@@ -553,12 +605,14 @@
       </div>`).join("");
     if(!readonly){
       el.querySelectorAll(".simple-row").forEach(row=>{
-        row.addEventListener("click", ()=>{
+        row.addEventListener("click", async ()=>{
           const id = row.getAttribute("data-id");
           const item = dayData.items.find(i=>i.id===id);
+          if(!item) return;
           item.done = !item.done;
+          dayDirty = true;
           renderChecklist();
-          saveDay();
+          await saveDay();
         });
       });
     }
@@ -571,7 +625,9 @@
       if(readonly){ wrap.innerHTML = `<div class="readonly-text">${escapeHtml(dayData.notes[f.key]||"")}</div>`; }
       else{
         wrap.innerHTML = `<textarea data-key="${f.key}">${escapeHtml(dayData.notes[f.key]||"")}</textarea>`;
-        wrap.querySelector("textarea").addEventListener("change", async (e)=>{ dayData.notes[f.key] = e.target.value; await saveDay(); });
+        const ta = wrap.querySelector("textarea");
+        ta.addEventListener("input", ()=>{ dayData.notes[f.key] = ta.value; dayDirty = true; });
+        ta.addEventListener("change", async ()=>{ dayData.notes[f.key] = ta.value; await saveDay(); });
       }
     });
   }
@@ -631,7 +687,7 @@
     const el = document.getElementById("docsList");
     const filtered = docs.filter(d => docFilter==="Todos" || (d.category||"Otro")===docFilter);
     if(!filtered.length){ el.innerHTML = `<div class="empty"><div class="e-ic">📄</div><p>Aún no hay documentos en esta categoría.</p></div>`; return; }
-    const sorted = [...filtered].sort((a,b)=> b.updatedAt.localeCompare(a.updatedAt));
+    const sorted = [...filtered].sort((a,b)=> (b.updatedAt||"").localeCompare(a.updatedAt||""));
     el.innerHTML = sorted.map(d => `
       <div class="item-card">
         <div class="item-head">
@@ -696,7 +752,7 @@
     el.innerHTML = dayEvents.map(ev => `
       <div class="item-card">
         <div class="item-head">
-          <div><div class="item-title">${escapeHtml(ev.title)}</div>${ev.time?`<div class="item-meta">${ev.time}</div>`:""}</div>
+          <div><div class="item-title">${escapeHtml(ev.title)}</div>${ev.time?`<div class="item-meta">${fmtTime12(ev.time)}</div>`:""}</div>
           <button class="item-del" data-id="${ev.id}">✕</button>
         </div>
         ${ev.notes?`<div class="item-body">${escapeHtml(ev.notes)}</div>`:""}
@@ -738,7 +794,7 @@
     const el = document.getElementById("recetasList");
     const filtered = recipes.filter(r => recFilter==="Todos" || (r.category||"Res")===recFilter);
     if(!filtered.length){ el.innerHTML = `<div class="empty"><div class="e-ic">🍽️</div><p>Aún no hay recetas guardadas en esta categoría.</p></div>`; return; }
-    const sorted = [...filtered].sort((a,b)=> b.updatedAt.localeCompare(a.updatedAt));
+    const sorted = [...filtered].sort((a,b)=> (b.updatedAt||"").localeCompare(a.updatedAt||""));
     el.innerHTML = sorted.map(r => {
       const isOpen = expandedRecipes.has(r.id);
       const editCount = r.editCount || 0;
@@ -907,10 +963,10 @@
     });
   }
   function countWeekdays(startIso, endIso){
-    const [sy,sm,sd] = startIso.split("-").map(Number);
-    const [ey,em,ed] = endIso.split("-").map(Number);
-    let d = new Date(sy, sm-1, sd);
-    const end = new Date(ey, em-1, ed);
+    const start = parseIsoLocal(startIso);
+    const end = parseIsoLocal(endIso || startIso);
+    if(!start || !end) return 0;
+    let d = new Date(start);
     let count = 0;
     while(d <= end){
       const dow = d.getDay();
@@ -936,7 +992,7 @@
     const isVacacion = l => (l.category || "vacacion") === "vacacion";
     const inThisYear = l => {
       const d = l.type==="parcial" ? l.date : l.startDate;
-      return d && new Date(d).getFullYear() === yearNow;
+      return isoYear(d) === yearNow;
     };
     const vacaciones = libres.filter(l=> isVacacion(l) && inThisYear(l));
     const aprobados = vacaciones.filter(l=> l.status==="aprobado");
@@ -948,7 +1004,10 @@
     document.getElementById("balanceFill").style.width = `${Math.min(100,(usedDays/ANNUAL_PAID_DAYS)*100)}%`;
 
     const holidaysThisYear = libres.filter(l=> (l.category==="holiday" || l.category==="dia_extra") && inThisYear(l));
-    const holidayDays = holidaysThisYear.reduce((s,l)=> s+countWeekdays(l.startDate,l.endDate), 0);
+    const holidayDays = holidaysThisYear.reduce((s,l)=> {
+      if(!l.startDate) return s;
+      return s + countWeekdays(l.startDate, l.endDate || l.startDate);
+    }, 0);
     document.getElementById("balanceDetail").textContent =
       `Tiempo Libre usado: ${Math.round(usedDays*10)/10} días · Pendientes: ${Math.round(pendingDays*10)/10} días (no descontados) · Holidays/Días Extras aparte: ${holidayDays} días · Año ${yearNow}`;
   }
@@ -1021,7 +1080,8 @@
 
     const byYear = {};
     libres.forEach(l=>{
-      const y = new Date(libreDate(l)).getFullYear();
+      const y = isoYear(libreDate(l));
+      if(!y) return;
       if(!byYear[y]) byYear[y] = [];
       byYear[y].push(l);
     });
@@ -1177,24 +1237,27 @@
     const todayIso = isoLocal(today);
     const todayEvents = events.filter(e=>e.date===todayIso).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
     todayEvents.forEach(ev=>{
-      cards += `<div class="reminder-card event"><span class="ric">📅</span><div><b>${escapeHtml(ev.title)}</b><span class="sub">Hoy${ev.time?" a las "+ev.time:""}</span></div></div>`;
+      cards += `<div class="reminder-card event"><span class="ric">📅</span><div><b>${escapeHtml(ev.title)}</b><span class="sub">Hoy${ev.time?" a las "+fmtTime12(ev.time):""}</span></div></div>`;
     });
 
     const in7 = new Date(today); in7.setDate(in7.getDate()+7);
     const upcoming = events.filter(e=>{
-      const [y,m,d] = e.date.split("-").map(Number); const ed = new Date(y,m-1,d);
+      const [y,m,d] = (e.date||"").split("-").map(Number);
+      if(!y || !m || !d) return false;
+      const ed = new Date(y,m-1,d);
       return ed > today && ed <= in7;
     }).sort((a,b)=> a.date.localeCompare(b.date)).slice(0,3);
     upcoming.forEach(ev=>{
-      cards += `<div class="reminder-card event"><span class="ric">📅</span><div><b>${escapeHtml(ev.title)}</b><span class="sub">${fmtDateShort(ev.date)}${ev.time?" · "+ev.time:""}</span></div></div>`;
+      cards += `<div class="reminder-card event"><span class="ric">📅</span><div><b>${escapeHtml(ev.title)}</b><span class="sub">${fmtDateShort(ev.date)}${ev.time?" · "+fmtTime12(ev.time):""}</span></div></div>`;
     });
 
     if(!cards) cards = `<div class="empty" style="padding:14px 4px;"><p>No hay recordatorios por ahora. ¡Buen día! 🌤️</p></div>`;
     remindersEl.innerHTML = cards;
 
     const todayDay = await getJSON(DAY_PREFIX + todayIso, null);
-    const totalTasks = todayDay ? todayDay.items.length : templateTasks.length;
-    const doneTasks = todayDay ? todayDay.items.filter(i=>i.done).length : 0;
+    const todayItems = todayDay && Array.isArray(todayDay.items) ? todayDay.items : null;
+    const totalTasks = todayItems ? todayItems.length : templateTasks.length;
+    const doneTasks = todayItems ? todayItems.filter(i=>i.done).length : 0;
     const pendingLibres = libres.filter(l=>l.status==="pendiente").length;
 
     document.getElementById("dashStats").innerHTML = `
@@ -1299,17 +1362,26 @@
   }
   let pendingUiRefresh = false;
   async function refreshLiveFromStorage(){
+    captureNotesFromDom();
+    if(dayDirty) await saveDay();
     if(isTyping()){ pendingUiRefresh = true; return; }
     pendingUiRefresh = false;
     templateTasks = await getJSON(TASKS_KEY, DEFAULT_TASKS);
+    if(!Array.isArray(templateTasks)) templateTasks = DEFAULT_TASKS;
     docs = await getJSON(DOCS_KEY, []);
     events = await getJSON(EVENTS_KEY, []);
     recipes = await getJSON(RECIPES_KEY, []);
     libres = await getJSON(LIBRES_KEY, []);
+    if(!Array.isArray(docs)) docs = [];
+    if(!Array.isArray(events)) events = [];
+    if(!Array.isArray(recipes)) recipes = [];
+    if(!Array.isArray(libres)) libres = [];
     const saved = await getJSON(DAY_PREFIX + isoLocal(currentDate), null);
     if(saved){
       if(!saved.notes) saved.notes = {humor:"",cambios:"",situaciones:""};
+      if(!Array.isArray(saved.items)) saved.items = templateTasks.map(itemFromTemplate);
       dayData = saved;
+      dayDirty = false;
     }
     renderDocFilters(); renderDocs();
     renderCalendar(); renderDayDetail();
@@ -1340,6 +1412,7 @@
   }
 
   async function init(){
+    try{
     const ready = await waitForStorage(3000);
     if(!ready){
       showError(true, "El guardado automático no está disponible ahora mismo. La app sigue funcionando, pero usa \"Compartir o copiar respaldo\" en Inicio antes de cerrarla.");
@@ -1365,12 +1438,16 @@
       }
     }
     templateTasks = await getJSON(TASKS_KEY, null);
-    if(templateTasks === null){ templateTasks = DEFAULT_TASKS; await setJSONRetry(TASKS_KEY, templateTasks); }
+    if(templateTasks === null || !Array.isArray(templateTasks)){ templateTasks = DEFAULT_TASKS; await setJSONRetry(TASKS_KEY, templateTasks); }
     else if(migrateTaskTexts(templateTasks)){ await setJSON(TASKS_KEY, templateTasks); }
     docs = await getJSON(DOCS_KEY, []);
     events = await getJSON(EVENTS_KEY, []);
     recipes = await getJSON(RECIPES_KEY, []);
     libres = await getJSON(LIBRES_KEY, []);
+    if(!Array.isArray(docs)) docs = [];
+    if(!Array.isArray(events)) events = [];
+    if(!Array.isArray(recipes)) recipes = [];
+    if(!Array.isArray(libres)) libres = [];
 
     await goToDay(new Date());
     renderDocFilters(); renderDocs();
@@ -1392,18 +1469,38 @@
       });
     }
     setInterval(syncFromCloud, 8000);
-    document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) syncFromCloud(); });
-    window.addEventListener("focus", ()=> syncFromCloud());
+    document.addEventListener("visibilitychange", ()=>{
+      if(document.hidden) return;
+      refreshToday();
+      syncFromCloud();
+    });
+    window.addEventListener("pageshow", ()=>{ refreshToday(); syncFromCloud(); });
+    window.addEventListener("focus", ()=>{ refreshToday(); syncFromCloud(); });
     window.addEventListener("online", ()=>{
       if(window.storage && window.storage.flush) window.storage.flush().catch(()=>{});
       syncFromCloud();
     });
-    document.getElementById("loadOverlay").classList.add("hidden");
+    }catch(e){
+      showError(true, "No se pudo abrir Nido del todo. Cierra la app y ábrela de nuevo.");
+    }finally{
+      document.getElementById("loadOverlay").classList.add("hidden");
+    }
   }
 
+  function syncKeyboardInset(){
+    const vv = window.visualViewport;
+    const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+    document.documentElement.style.setProperty("--kb", kb + "px");
+    if(kb > 60) document.body.classList.add("kb-open");
+  }
+  if(window.visualViewport){
+    window.visualViewport.addEventListener("resize", syncKeyboardInset);
+    window.visualViewport.addEventListener("scroll", syncKeyboardInset);
+  }
   document.addEventListener("focusin", (e)=>{
     if(e.target && e.target.matches && e.target.matches("input, textarea, select")){
       document.body.classList.add("kb-open");
+      syncKeyboardInset();
     }
   });
   document.addEventListener("focusout", ()=>{
@@ -1411,6 +1508,7 @@
       const active = document.activeElement;
       if(!active || !active.matches || !active.matches("input, textarea, select")){
         document.body.classList.remove("kb-open");
+        document.documentElement.style.setProperty("--kb", "0px");
         if(pendingUiRefresh) refreshLiveFromStorage();
       }
     }, 50);

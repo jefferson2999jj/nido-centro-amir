@@ -248,7 +248,8 @@ body.kb-open{padding-bottom:24px;}
 .load-overlay .lo-txt{font-family:'Inter',sans-serif; font-size:13px; color:var(--ink-soft); font-weight:700;}
 .load-overlay.hidden{display:none;}
 
-.pin-modal-bg{ position:fixed; inset:0; background:rgba(51,46,39,0.55); z-index:80; display:flex; align-items:center; justify-content:center; padding:max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)); }
+.pin-modal-bg{ position:fixed; inset:0; background:rgba(51,46,39,0.55); z-index:80; display:flex; align-items:center; justify-content:center; padding:max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom), var(--kb, 0px)); }
+body.kb-open .pin-modal-bg{ align-items:flex-start; padding-top:max(12px, env(safe-area-inset-top)); }
 .pin-modal-bg.hidden{display:none;}
 .pin-modal{ background:#fff; border-radius:20px; padding:22px 20px; max-width:320px; width:100%; text-align:center; box-shadow:var(--shadow); }
 .pin-modal .pm-ic{font-size:28px; margin-bottom:6px;}
@@ -265,7 +266,7 @@ body.kb-open{padding-bottom:24px;}
 
 .form-modal-bg{ position:fixed; inset:0; background:rgba(51,46,39,0.55); z-index:70; display:flex; align-items:flex-end; justify-content:center; }
 .form-modal-bg.hidden{display:none;}
-.form-modal{ background:var(--paper); width:100%; max-width:480px; border-radius:22px 22px 0 0; padding:26px 18px calc(26px + env(safe-area-inset-bottom)); max-height:85vh; max-height:85dvh; overflow-y:auto; -webkit-overflow-scrolling:touch; animation:slideUpForm 0.22s ease; }
+.form-modal{ background:var(--paper); width:100%; max-width:480px; border-radius:22px 22px 0 0; padding:26px 18px calc(26px + env(safe-area-inset-bottom) + var(--kb, 0px)); max-height:calc(85dvh - var(--kb, 0px)); overflow-y:auto; -webkit-overflow-scrolling:touch; animation:slideUpForm 0.22s ease; }
 @keyframes slideUpForm{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
 .form-modal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
 .form-modal-head h3{font-family:'Lora',serif; font-weight:700; font-size:19px; margin:0;}

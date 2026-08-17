@@ -388,11 +388,9 @@
     const diag = document.getElementById("diagCard");
     const backup = document.getElementById("backupCard");
     const remForm = document.getElementById("manualReminderForm");
-    const imgWrap = document.getElementById("docImagesWrap");
     if(diag) diag.hidden = !padres;
     if(backup) backup.hidden = !padres;
     if(remForm) remForm.hidden = !padres;
-    if(imgWrap) imgWrap.hidden = !padres;
   }
   document.getElementById("roleNinera").addEventListener("click", ()=> setRole("niñera"));
   document.getElementById("rolePadres").addEventListener("click", ()=> requestPadresAccess());
@@ -843,7 +841,7 @@
             <img src="${src}" alt="${escapeHtml(d.title)}" data-id="${d.id}" data-i="${i}">
             ${role==="padres" ? `<button type="button" class="doc-photo-del" data-id="${d.id}" data-i="${i}">✕</button>` : ""}
           </div>`).join("")}</div>` : ""}
-        ${role==="padres" ? `<label class="toggle-btn doc-add-photo" style="margin:10px 0 0;">📷 Agregar foto<input type="file" accept="image/*" data-id="${d.id}" class="file-hidden" tabindex="-1"></label>` : ""}
+        <label class="toggle-btn doc-add-photo" style="margin:10px 0 0;">📷 Agregar foto<input type="file" accept="image/*" data-id="${d.id}" class="file-hidden" tabindex="-1"></label>
       </div>`).join("");
     el.querySelectorAll(".item-del").forEach(btn=>{
       btn.addEventListener("click", async ()=>{ docs = docs.filter(d=>d.id!==btn.getAttribute("data-id")); await setJSON(DOCS_KEY, docs); renderDocs(); renderInicio(); });

@@ -203,12 +203,12 @@
         </select>
       </div>
       <div class="field"><label>Título</label><input type="text" id="docTitle" placeholder="Ej. Horario de Amir"></div>
-      <div class="field"><label>Contenido / enlace</label><textarea id="docBody" placeholder="Escribe el contenido, pega el texto o pega un enlace al archivo…"></textarea></div>
-      <div class="field" id="docImagesWrap" hidden>
-        <label>Imágenes</label>
-        <label class="toggle-btn" for="docImages" style="margin-bottom:6px;">📷 Elegir fotos</label>
+      <div class="field"><label>Escribir documento (texto o enlace)</label><textarea id="docBody" placeholder="Escribe el contenido, pega el texto o pega un enlace…"></textarea></div>
+      <div class="field" id="docImagesWrap">
+        <label>O subir fotos del documento</label>
+        <label class="toggle-btn" for="docImages" style="margin-bottom:6px;">📷 Subir fotos</label>
         <input type="file" id="docImages" accept="image/*" multiple class="file-hidden" tabindex="-1">
-        <p class="install-note" style="margin-top:6px;">Puedes subir fotos del contrato, recetas o papeles. Se comprimen solas.</p>
+        <p class="install-note" style="margin-top:6px;">Puedes escribir el documento, subir fotos, o ambos. Luego toca Guardar.</p>
         <div class="doc-photos" id="docImagePreview"></div>
       </div>
       <button class="submit-btn" id="addDocBtn">Guardar documento</button>

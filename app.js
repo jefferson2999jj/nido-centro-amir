@@ -1,28 +1,195 @@
 (function(){
-  // Browser fallback: Claude artifacts use window.storage; locally we use localStorage.
-  if (typeof window.storage === "undefined" || !window.storage) {
-    window.storage = {
-      _local: true,
-      get: async function(key) {
-        try { return { value: localStorage.getItem(key) }; }
-        catch (e) { return { value: null }; }
-      },
-      set: async function(key, value) {
-        try { localStorage.setItem(key, value); return true; }
-        catch (e) { return false; }
-      },
-      list: async function(prefix) {
-        const keys = [];
-        try {
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && k.indexOf(prefix) === 0) keys.push(k);
-          }
-        } catch (e) { /* ignore */ }
-        return { keys: keys };
-      }
-    };
+  // Local cache + shared cloud document (last-write-wins per key).
+  const NIDO_CLOUD_URL = "https://api.npoint.io/f10c050bfa45a7eac723";
+  const SYNC_META_KEY = "nido:sync:meta";
+  let lastIssuedTs = 0;
+  let syncDirty = false;
+  let syncPushing = false;
+  let syncPushAgain = false;
+  let syncPushTimer = null;
+  let syncCloudOk = null;
+  let syncLastAt = 0;
+  let syncLastError = "";
+  let syncRemoteHandler = null;
+
+  function loadSyncMeta(){
+    try { return JSON.parse(localStorage.getItem(SYNC_META_KEY) || "{}") || {}; }
+    catch (e) { return {}; }
   }
+  function saveSyncMeta(meta){
+    try { localStorage.setItem(SYNC_META_KEY, JSON.stringify(meta)); }
+    catch (e) { /* ignore */ }
+  }
+  function nextSyncTs(){
+    let t = Date.now();
+    if (t <= lastIssuedTs) t = lastIssuedTs + 1;
+    lastIssuedTs = t;
+    return t;
+  }
+  function localRaw(key){
+    try { return localStorage.getItem(key); }
+    catch (e) { return null; }
+  }
+  function allAmirKeys(){
+    const keys = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf("amir:") === 0) keys.push(k);
+      }
+    } catch (e) { /* ignore */ }
+    return keys;
+  }
+  async function cloudGet(){
+    const res = await fetch(NIDO_CLOUD_URL + "?t=" + Date.now(), { cache: "no-store", credentials: "omit" });
+    if (!res.ok) throw new Error("nube GET " + res.status);
+    const data = await res.json();
+    if (!data || typeof data !== "object") return { v: 1, keys: {} };
+    if (!data.keys || typeof data.keys !== "object") data.keys = {};
+    return data;
+  }
+  async function cloudPost(doc){
+    const res = await fetch(NIDO_CLOUD_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(doc),
+      cache: "no-store",
+      credentials: "omit"
+    });
+    if (!res.ok) throw new Error("nube POST " + res.status);
+  }
+  function mergeCloudKeys(remoteKeys){
+    const meta = loadSyncMeta();
+    const merged = {};
+    const applied = [];
+    let needPush = false;
+    const names = {};
+    Object.keys(remoteKeys || {}).forEach(k => { names[k] = true; });
+    allAmirKeys().forEach(k => { names[k] = true; });
+    Object.keys(meta).forEach(k => { names[k] = true; });
+
+    Object.keys(names).forEach(key => {
+      if (key === SYNC_META_KEY) return;
+      const remote = remoteKeys && remoteKeys[key];
+      const rt = remote && typeof remote.t === "number" ? remote.t : 0;
+      const rv = remote && typeof remote.v === "string" ? remote.v : null;
+      let lt = typeof meta[key] === "number" ? meta[key] : 0;
+      const lv = localRaw(key);
+
+      if (rt > lt) {
+        try {
+          if (rv === null) localStorage.removeItem(key);
+          else localStorage.setItem(key, rv);
+        } catch (e) { /* ignore */ }
+        meta[key] = rt;
+        if (rv !== null) merged[key] = { t: rt, v: rv };
+        applied.push(key);
+        return;
+      }
+      if (lv !== null && lt === 0) {
+        lt = nextSyncTs();
+        meta[key] = lt;
+        needPush = true;
+      }
+      if (lv !== null && lt >= rt) {
+        merged[key] = { t: lt, v: lv };
+        if (lt > rt) needPush = true;
+      } else if (rv !== null) {
+        merged[key] = { t: rt, v: rv };
+      }
+    });
+    saveSyncMeta(meta);
+    return { merged: merged, applied: applied, needPush: needPush };
+  }
+  async function pullCloud(){
+    const remote = await cloudGet();
+    const result = mergeCloudKeys(remote.keys);
+    syncCloudOk = true;
+    syncLastAt = Date.now();
+    syncLastError = "";
+    return result;
+  }
+  async function pushCloud(){
+    if (syncPushing) { syncPushAgain = true; return null; }
+    syncPushing = true;
+    try {
+      let result = null;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const remote = await cloudGet();
+        result = mergeCloudKeys(remote.keys);
+        if (!result.needPush && !syncDirty && attempt === 0) {
+          syncCloudOk = true;
+          syncLastAt = Date.now();
+          return result;
+        }
+        await cloudPost({ v: 1, keys: result.merged });
+        const check = await cloudGet();
+        result = mergeCloudKeys(check.keys);
+        syncDirty = result.needPush;
+        syncCloudOk = true;
+        syncLastAt = Date.now();
+        syncLastError = "";
+        if (!result.needPush) return result;
+      }
+      return result;
+    } catch (e) {
+      syncCloudOk = false;
+      syncLastError = (e && e.message) ? e.message : "error";
+      throw e;
+    } finally {
+      syncPushing = false;
+      if (syncPushAgain) {
+        syncPushAgain = false;
+        scheduleCloudPush();
+      }
+    }
+  }
+  function scheduleCloudPush(){
+    syncDirty = true;
+    if (syncPushTimer) clearTimeout(syncPushTimer);
+    syncPushTimer = setTimeout(() => {
+      pushCloud().then(res => {
+        if (res && res.applied && res.applied.length && syncRemoteHandler) syncRemoteHandler(res.applied);
+      }).catch(() => {});
+    }, 700);
+  }
+
+  window.storage = {
+    _local: true,
+    _cloud: true,
+    get: async function(key) {
+      try { return { value: localStorage.getItem(key) }; }
+      catch (e) { return { value: null }; }
+    },
+    set: async function(key, value) {
+      try {
+        localStorage.setItem(key, value);
+        if (key && key.indexOf("amir:") === 0) {
+          const meta = loadSyncMeta();
+          meta[key] = nextSyncTs();
+          saveSyncMeta(meta);
+          scheduleCloudPush();
+        }
+        return true;
+      } catch (e) { return false; }
+    },
+    list: async function(prefix) {
+      const keys = [];
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.indexOf(prefix) === 0) keys.push(k);
+        }
+      } catch (e) { /* ignore */ }
+      return { keys: keys };
+    },
+    pull: pullCloud,
+    flush: pushCloud,
+    status: function(){
+      return { cloudOk: syncCloudOk, lastSyncAt: syncLastAt, lastError: syncLastError, dirty: syncDirty };
+    },
+    onRemote: function(fn){ syncRemoteHandler = fn; }
+  };
 
   const DAY_PREFIX = "amir:day:v2:";
   const TASKS_KEY = "amir:tasks:v3";
@@ -106,14 +273,15 @@
   function updateDiag(extra){
     const el = document.getElementById("diagStatus");
     if(!el) return;
-    const hasStorage = typeof window.storage !== "undefined" && !!window.storage;
-    const mode = (window.storage && window.storage._local)
-      ? "Este iPhone / este navegador (se guarda solo aquí)"
-      : "Personal (no compartido)";
+    const st = window.storage && window.storage.status ? window.storage.status() : {};
+    let mode = "Nube compartida (conectando…)";
+    if(st.cloudOk === true) mode = "Nube compartida — padres y niñera ven lo mismo";
+    else if(st.cloudOk === false) mode = "Este iPhone por ahora (se sube a la nube al reconectar)";
+    const when = st.lastSyncAt ? new Date(st.lastSyncAt).toLocaleTimeString("es-ES", {hour:"numeric", minute:"2-digit"}) : "—";
     el.innerHTML = `
-      <div>window.storage detectado: <b>${hasStorage ? "Sí" : "No"}</b></div>
       <div>Modo: <b>${mode}</b></div>
-      <div>Última prueba de guardado: <b>${extra && extra.result ? extra.result : "pendiente…"}</b></div>
+      <div>Última sincronización: <b>${when}</b></div>
+      <div>Prueba: <b>${extra && extra.result ? extra.result : "pendiente…"}</b></div>
       ${extra && extra.detail ? `<div style="margin-top:4px;">${escapeHtml(extra.detail)}</div>` : ""}
     `;
   }
@@ -121,13 +289,22 @@
   async function storageSelfTest(){
     const testKey = "amir:_selftest";
     const ok = await setJSON(testKey, {t:Date.now()}, true);
-    if(ok){
-      updateDiag({result:"✅ Éxito", detail:"El guardado se confirmó a las "+nowHHMM()+"."});
-    } else {
-      updateDiag({result:"❌ Falló", detail:"window.storage.set() no confirmó el guardado. Usa el respaldo manual mientras tanto."});
+    if(!ok){
+      updateDiag({result:"❌ Falló", detail:"No se pudo guardar en este iPhone. Usa el respaldo manual mientras tanto."});
       showError(true, "El guardado automático no está disponible ahora mismo. La app sigue funcionando, pero usa \"Compartir o copiar respaldo\" en Inicio antes de cerrarla.");
+      return false;
     }
-    return ok;
+    try{
+      if(window.storage.flush) await window.storage.flush();
+      if(window.storage.pull) await window.storage.pull();
+    }catch(e){ /* offline is ok; local already saved */ }
+    const st = window.storage.status ? window.storage.status() : {};
+    if(st.cloudOk){
+      updateDiag({result:"✅ Nube conectada", detail:"Lo que marque Dayris aparece en el iPhone de los padres, y al revés. Última sync "+nowHHMM()+"."});
+    } else {
+      updateDiag({result:"✅ Guardado en este iPhone", detail:"No hay nube ahora. Al volver internet se sincroniza solo."});
+    }
+    return true;
   }
   document.getElementById("retryStorage").addEventListener("click", async ()=>{
     showError(false);
@@ -1116,20 +1293,74 @@
     }
   });
 
+  function isTyping(){
+    const a = document.activeElement;
+    return !!(a && a.matches && a.matches("input, textarea, select"));
+  }
+  let pendingUiRefresh = false;
+  async function refreshLiveFromStorage(){
+    if(isTyping()){ pendingUiRefresh = true; return; }
+    pendingUiRefresh = false;
+    templateTasks = await getJSON(TASKS_KEY, DEFAULT_TASKS);
+    docs = await getJSON(DOCS_KEY, []);
+    events = await getJSON(EVENTS_KEY, []);
+    recipes = await getJSON(RECIPES_KEY, []);
+    libres = await getJSON(LIBRES_KEY, []);
+    const saved = await getJSON(DAY_PREFIX + isoLocal(currentDate), null);
+    if(saved){
+      if(!saved.notes) saved.notes = {humor:"",cambios:"",situaciones:""};
+      dayData = saved;
+    }
+    renderDocFilters(); renderDocs();
+    renderCalendar(); renderDayDetail();
+    renderRecFilters(); renderRecetas();
+    renderLibres();
+    renderHeaderNav(); renderChecklist();
+    await renderInicio();
+    updateDiag();
+  }
+  async function syncFromCloud(){
+    if(!window.storage || !window.storage.pull) return;
+    try{
+      const result = await window.storage.pull();
+      if(result && result.needPush && window.storage.flush){
+        window.storage.flush().catch(()=>{});
+      }
+      updateDiag();
+      if(result && result.applied && result.applied.length){
+        const live = result.applied.filter(k => k.indexOf("amir:_") !== 0);
+        if(live.length){
+          if(isTyping()) pendingUiRefresh = true;
+          else await refreshLiveFromStorage();
+        }
+      }
+    }catch(e){
+      updateDiag({result:"⚠️ Sin nube", detail:"Guardado en este iPhone. Se sincroniza al volver internet."});
+    }
+  }
+
   async function init(){
     const ready = await waitForStorage(3000);
     if(!ready){
       showError(true, "El guardado automático no está disponible ahora mismo. La app sigue funcionando, pero usa \"Compartir o copiar respaldo\" en Inicio antes de cerrarla.");
     } else {
+      try{ if(window.storage.pull) await window.storage.pull(); }
+      catch(e){ /* offline: keep local cache */ }
       await storageSelfTest();
-      // real round-trip check: write a marker, then re-read it back
       const marker = "check-"+Date.now();
       await setJSON("amir:_marker", {v:marker}, true);
+      try{ if(window.storage.flush) await window.storage.flush(); }
+      catch(e){ /* offline */ }
       const readBack = await getJSON("amir:_marker", null);
+      const st = window.storage.status ? window.storage.status() : {};
       if(readBack && readBack.v === marker){
-        updateDiag({result:"✅ Confirmado (guardar y leer funcionan)", detail:"Tus datos deberían persistir al cerrar y reabrir la app."});
+        if(st.cloudOk){
+          updateDiag({result:"✅ Nube conectada", detail:"Padres y niñera comparten el mismo Nido. Última sync "+nowHHMM()+"."});
+        } else {
+          updateDiag({result:"✅ Guardado en este iPhone", detail:"No hay nube ahora. Al volver internet se sincroniza solo."});
+        }
       } else {
-        updateDiag({result:"⚠️ Guardó pero no pudo releer", detail:"El guardado parece funcionar pero al releer no aparece el mismo dato — esto puede explicar por qué se pierde la información. Usa el respaldo manual."});
+        updateDiag({result:"⚠️ Guardó pero no pudo releer", detail:"Usa el respaldo manual si ves datos viejos."});
         showError(true, "El guardado no está persistiendo de forma confiable. Usa \"Compartir o copiar respaldo\" en Inicio antes de cerrar la app.");
       }
     }
@@ -1152,6 +1383,21 @@
       const standalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
       if(!standalone) installCard.hidden = false;
     }
+    if(window.storage && window.storage.onRemote){
+      window.storage.onRemote((applied)=>{
+        const live = (applied || []).filter(k => k.indexOf("amir:_") !== 0);
+        if(!live.length) return;
+        if(isTyping()) pendingUiRefresh = true;
+        else refreshLiveFromStorage();
+      });
+    }
+    setInterval(syncFromCloud, 8000);
+    document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) syncFromCloud(); });
+    window.addEventListener("focus", ()=> syncFromCloud());
+    window.addEventListener("online", ()=>{
+      if(window.storage && window.storage.flush) window.storage.flush().catch(()=>{});
+      syncFromCloud();
+    });
     document.getElementById("loadOverlay").classList.add("hidden");
   }
 
@@ -1165,6 +1411,7 @@
       const active = document.activeElement;
       if(!active || !active.matches || !active.matches("input, textarea, select")){
         document.body.classList.remove("kb-open");
+        if(pendingUiRefresh) refreshLiveFromStorage();
       }
     }, 50);
   });

@@ -1,10 +1,4 @@
 (function(){
-  function dbg(hypothesisId, location, message, data){
-    // #region agent log
-    fetch('http://127.0.0.1:7428/ingest/e1cd67b8-e046-453a-9422-51872b1c1b84',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'16f278'},body:JSON.stringify({sessionId:'16f278',runId:'pre-fix',hypothesisId:hypothesisId,location:location,message:message,data:data||{},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  }
-  dbg('C','app.js:boot','script start',{hasStorage:typeof window.storage, overlay:!!document.getElementById('loadOverlay')});
   let deferredInstallPrompt = null;
   window.addEventListener("beforeinstallprompt", (e)=>{
     e.preventDefault();
@@ -66,22 +60,7 @@
     }
   }
   async function cloudGet(){
-    // #region agent log
-    dbg('A','app.js:cloudGet','cloud GET start',{});
-    // #endregion
-    const t0 = Date.now();
-    let res;
-    try {
-      res = await cloudFetch(NIDO_CLOUD_URL + "?t=" + Date.now());
-    } catch (e) {
-      // #region agent log
-      dbg('A','app.js:cloudGet','cloud GET failed',{err:String(e && e.name ? e.name : e),ms:Date.now()-t0});
-      // #endregion
-      throw e;
-    }
-    // #region agent log
-    dbg('A','app.js:cloudGet','cloud GET response',{ok:res.ok,status:res.status,ms:Date.now()-t0});
-    // #endregion
+    const res = await cloudFetch(NIDO_CLOUD_URL + "?t=" + Date.now());
     if (!res.ok) throw new Error("nube GET " + res.status);
     const data = await res.json();
     if (!data || typeof data !== "object") return { v: 1, keys: {} };
@@ -140,9 +119,6 @@
     return { merged: merged, applied: applied, needPush: needPush };
   }
   async function pullCloud(){
-    // #region agent log
-    dbg('A','app.js:pullCloud','pull start',{});
-    // #endregion
     const remote = await cloudGet();
     const result = mergeCloudKeys(remote.keys);
     syncCloudOk = true;
@@ -151,9 +127,6 @@
     return result;
   }
   async function pushCloud(){
-    // #region agent log
-    dbg('B','app.js:pushCloud','flush/push start',{syncPushing:syncPushing,syncDirty:syncDirty});
-    // #endregion
     if (syncPushing) { syncPushAgain = true; return null; }
     syncPushing = true;
     try {
@@ -1696,25 +1669,13 @@
 
   async function init(){
     try{
-    // #region agent log
-    dbg('C','app.js:init','init start',{readyStorage:!!window.storage});
-    // #endregion
     const ready = await waitForStorage(3000);
-    // #region agent log
-    dbg('E','app.js:init','waitForStorage done',{ready:ready});
-    // #endregion
     if(!ready){
       showError(true, "El guardado automático no está disponible ahora mismo. La app sigue funcionando, pero usa \"Compartir o copiar respaldo\" en Inicio antes de cerrarla.");
     } else {
       try{ if(window.storage.pull) await window.storage.pull(); }
       catch(e){ /* offline: keep local cache */ }
-      // #region agent log
-      dbg('A','app.js:init','after first pull',{});
-      // #endregion
       await storageSelfTest();
-      // #region agent log
-      dbg('B','app.js:init','after storageSelfTest',{});
-      // #endregion
       const marker = "check-"+Date.now();
       await setJSON("amir:_marker", {v:marker}, true);
       try{ if(window.storage.flush) window.storage.flush().catch(function(){}); }
@@ -1774,16 +1735,10 @@
       syncFromCloud();
     });
     }catch(e){
-      // #region agent log
-      dbg('C','app.js:init','init catch',{err:String(e && e.message ? e.message : e)});
-      // #endregion
       showError(true, "No se pudo abrir Nido del todo. Cierra la app y ábrela de nuevo.");
     }finally{
       const overlay = document.getElementById("loadOverlay");
       if(overlay) overlay.classList.add("hidden");
-      // #region agent log
-      dbg('D','app.js:init','overlay hidden',{hasOverlay:!!overlay, className: overlay ? overlay.className : null, runId:'post-fix'});
-      // #endregion
     }
   }
 

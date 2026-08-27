@@ -587,7 +587,7 @@
     if(dayData.locked) document.getElementById("lockText").textContent = role==="padres"
       ? `🔒 Firmado a las ${dayData.signedAt} — puedes editar o borrar`
       : `🔒 Firmado a las ${dayData.signedAt} — checklist bloqueado`;
-    document.getElementById("unlockLink").style.display = dayData.locked ? "inline" : "none";
+    document.getElementById("unlockLink").style.display = (dayData.locked && role==="padres") ? "inline" : "none";
     document.getElementById("signBtn").style.display = (role==="niñera" && !dayData.locked) ? "block" : "none";
 
     document.getElementById("importantToggle").classList.toggle("active", !!dayData.important);
@@ -714,6 +714,7 @@
     renderChecklist();
   });
   document.getElementById("unlockLink").addEventListener("click", async ()=>{
+    if(role!=="padres") return;
     dayData.locked = false; dayData.signedAt = null;
     await saveDay();
     document.getElementById("signedBanner").style.display = "none";

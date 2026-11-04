@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="Nido" />
 <meta name="format-detection" content="telephone=no" />
-<meta name="description" content="Centro de cuidado de Amir para Dayris y la familia." />
+<meta name="description" content="Centro de cuidado de Amir para la niñera y la familia." />
 <title>Nido 💙</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -80,11 +80,18 @@
       <div class="greet-sub" id="greetDate">—</div>
       <div id="reminders"></div>
       <div id="manualReminderForm" hidden>
-        <div class="sec-heading">📝 Recordatorio para Dayris</div>
+        <div class="sec-heading" id="remHeading">📝 Recordatorio para la niñera</div>
         <div class="field"><label>Texto</label><input type="text" id="remText" placeholder="Ej. Cortar uñas, llevar chaqueta…"></div>
         <div class="field"><label>Fecha (opcional — si la dejas vacía, se ve siempre)</label><input type="date" id="remDate"></div>
         <button class="submit-btn" id="addRemBtn">Publicar recordatorio</button>
       </div>
+    </div>
+    <div class="card" id="profilesCard" hidden>
+      <div class="sec-heading" style="margin-top:0;">👤 Perfil de la niñera</div>
+      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">El nombre y el Tiempo Libre que se ven en la app son los del perfil activo. Holidays y Días Extras son de la familia y se ven siempre.</p>
+      <div id="profilesList"></div>
+      <div class="field" style="margin-top:12px;"><label>Nueva niñera</label><input type="text" id="newProfileName" placeholder="Nombre"></div>
+      <button class="submit-btn" id="addProfileBtn">Crear perfil</button>
     </div>
     <div class="card">
       <div class="sec-heading" style="margin-top:0;">📊 Resumen</div>
@@ -253,7 +260,7 @@
     </div>
 
     <div class="benefits-card">
-      <div class="sec-heading" style="margin-top:0;">💼 Beneficios de Dayris</div>
+      <div class="sec-heading" style="margin-top:0;" id="benefitsHeading">💼 Beneficios de la niñera</div>
       <div class="benefit-row"><span class="b-ic">🏖️</span><span>2 semanas pagadas al año (10 días laborables)</span></div>
       <div class="benefit-row"><span class="b-ic">🎉</span><span>Holidays — pagos estipulados en el contrato</span></div>
       <div class="benefit-row"><span class="b-ic">🧳</span><span>Días extras — cualquier día libre adicional que la familia decida dar (ej. vacaciones familiares) también se paga completo</span></div>

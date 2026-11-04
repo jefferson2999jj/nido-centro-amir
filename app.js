@@ -131,9 +131,17 @@
     syncPushing = true;
     try {
       let result = null;
+      // Keep every key pulled in during this push, so the screen refreshes with the other phone's changes.
+      const applied = [];
+      const mergeAll = keys => {
+        const r = mergeCloudKeys(keys);
+        r.applied.forEach(k => { if (applied.indexOf(k) < 0) applied.push(k); });
+        r.applied = applied;
+        return r;
+      };
       for (let attempt = 0; attempt < 4; attempt++) {
         const remote = await cloudGet();
-        result = mergeCloudKeys(remote.keys);
+        result = mergeAll(remote.keys);
         if (!result.needPush && !syncDirty && attempt === 0) {
           syncCloudOk = true;
           syncLastAt = Date.now();
@@ -141,7 +149,7 @@
         }
         await cloudPost({ v: 1, keys: result.merged });
         const check = await cloudGet();
-        result = mergeCloudKeys(check.keys);
+        result = mergeAll(check.keys);
         syncDirty = result.needPush;
         syncCloudOk = true;
         syncLastAt = Date.now();
@@ -216,6 +224,8 @@
   const LIBRES_KEY = "amir:libres";
   const BONUS_KEY = "amir:bonus2";
   const REMINDERS_KEY = "amir:reminders";
+  const PROFILES_KEY = "amir:profiles";
+  const LEGACY_PROFILE_ID = "dayris"; // Tiempo Libre saved before profiles existed belongs to this profile
   const ANNUAL_PAID_DAYS = 10; // 2 semanas x 5 días laborables
   const SHARED = false; // personal storage — avoids the "Access shared data" permission gate that was failing
   const DOC_CATS = ["Horario del Bebé","Contrato","Actividades de Desarrollo","Resúmenes del Doctor","Otro"];
@@ -239,6 +249,8 @@
     { id:"h9", section:"hogar", text:"Limpiar, aspirar y sacudir habitación (1x semana)" },
     { id:"h10", section:"hogar", text:"Remover ropa pequeña de gaveta y closet — guardar en bolsa plástica (1x mes)" },
   ];
+  // Once done, these stay hidden for the rest of the week (Sun–Sat, like the week strip) or month.
+  const PERIODIC_TASKS = { h6:"week", h10:"month" };
 
   let role = "niñera";
   let today = new Date();
@@ -246,6 +258,8 @@
   let dayData = { locked:false, signedAt:null, items:[], notes:{humor:"",cambios:"",situaciones:""} };
   let templateTasks = [];
   let docs = [], events = [], recipes = [], libres = [], reminders = [];
+  let profiles = normalizeProfiles(null);
+  let periodicHidden = new Set();
   let docFilter = "Todos";
   let calViewMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   let calSelected = new Date();
@@ -290,6 +304,43 @@
   function escapeHtml(s){ const d=document.createElement("div"); d.textContent=s||""; return d.innerHTML; }
   function uid(){ return Date.now()+"-"+Math.random().toString(36).slice(2,7); }
   function isCookingDay(d){ const dow = d.getDay(); return dow===1 || dow===4; } // lunes=1, jueves=4
+
+  // ---------- nanny profiles ----------
+  function normalizeProfiles(p){
+    if(!p || !Array.isArray(p.list)) return { list:[{ id:LEGACY_PROFILE_ID, name:"Dayris" }], activeId:null };
+    if(!p.list.some(x=>x.id===p.activeId)) p.activeId = null;
+    return p;
+  }
+  function activeProfile(){ return profiles.list.find(p=>p.id===profiles.activeId) || null; }
+  function nannyLabel(){ const p = activeProfile(); return p ? p.name : "la niñera"; }
+  function libreProfileId(l){ return l.profileId === undefined ? LEGACY_PROFILE_ID : l.profileId; }
+  // Tiempo Libre belongs to one nanny; Holidays and Días Extras belong to the family and always show.
+  function isActiveProfileLibre(l){
+    return (l.category || "vacacion") !== "vacacion" || libreProfileId(l) === (profiles.activeId || "");
+  }
+
+  // ---------- weekly / monthly tasks ----------
+  function periodStart(d, period){
+    if(period === "month") return new Date(d.getFullYear(), d.getMonth(), 1);
+    const s = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    s.setDate(s.getDate() - s.getDay());
+    return s;
+  }
+  // Ids of weekly/monthly tasks already done on an earlier day of the same week/month as d.
+  async function computePeriodicHidden(d){
+    const hidden = new Set();
+    const end = isoLocal(d);
+    for(const id of Object.keys(PERIODIC_TASKS)){
+      const day = periodStart(d, PERIODIC_TASKS[id]);
+      while(isoLocal(day) < end){
+        const saved = await getJSON(DAY_PREFIX + isoLocal(day), null);
+        if(saved && Array.isArray(saved.items) && saved.items.some(i=> i.id===id && i.done)){ hidden.add(id); break; }
+        day.setDate(day.getDate()+1);
+      }
+    }
+    return hidden;
+  }
+  function visibleItems(items, hidden){ return items.filter(i=> i.done || !hidden.has(i.id)); }
 
   function showError(show, msg){
     document.getElementById("globalError").classList.toggle("show", !!show);
@@ -342,7 +393,7 @@
     }catch(e){ /* offline is ok; local already saved */ }
     const st = window.storage.status ? window.storage.status() : {};
     if(st.cloudOk){
-      updateDiag({result:"✅ Nube conectada", detail:"Lo que marque Dayris aparece en el teléfono de los padres, y al revés. Última sync "+nowHHMM()+"."});
+      updateDiag({result:"✅ Nube conectada", detail:"Lo que marque la niñera aparece en el teléfono de los padres, y al revés. Última sync "+nowHHMM()+"."});
     } else {
       updateDiag({result:"✅ Guardado en este teléfono", detail:"No hay nube ahora. Al volver internet se sincroniza solo."});
     }
@@ -395,9 +446,11 @@
     const diag = document.getElementById("diagCard");
     const backup = document.getElementById("backupCard");
     const remForm = document.getElementById("manualReminderForm");
+    const profilesCard = document.getElementById("profilesCard");
     if(diag) diag.hidden = !padres;
     if(backup) backup.hidden = !padres;
     if(remForm) remForm.hidden = !padres;
+    if(profilesCard) profilesCard.hidden = !padres;
   }
   document.getElementById("roleNinera").addEventListener("click", ()=> setRole("niñera"));
   document.getElementById("rolePadres").addEventListener("click", ()=> requestPadresAccess());
@@ -492,6 +545,7 @@
     document.getElementById("signedBanner").style.display = "none";
     dayData = await loadDay(currentDate);
     dayDirty = false;
+    periodicHidden = await computePeriodicHidden(currentDate);
     renderHeaderNav();
     renderChecklist();
   }
@@ -562,6 +616,7 @@
     document.querySelectorAll("textarea[data-key]").forEach(ta=>{
       const k = ta.getAttribute("data-key");
       if(!k) return;
+      if(ta.getAttribute("data-day") !== isoLocal(currentDate)) return; // boxes still showing another day
       if(!dayData.notes) dayData.notes = {humor:"",cambios:"",situaciones:""};
       if(dayData.notes[k] !== ta.value){
         dayData.notes[k] = ta.value;
@@ -576,9 +631,11 @@
   }
 
   function renderChecklist(){
-    captureNotesFromDom();
-    const total = dayData.items.length;
-    const done = dayData.items.filter(i=>i.done).length;
+    // No captureNotesFromDom() here: dayData may have just been replaced (new day or synced data),
+    // and the old boxes on screen would overwrite its notes. Typing already updates dayData.notes.
+    const shown = visibleItems(dayData.items, periodicHidden);
+    const total = shown.length;
+    const done = shown.filter(i=>i.done).length;
     document.getElementById("progressCount").textContent = `${done}/${total}`;
     document.getElementById("progressFill").style.width = total ? `${(done/total)*100}%` : "0%";
 
@@ -657,7 +714,7 @@
 
   function renderSection(section, elId, readonly){
     const el = document.getElementById(elId);
-    const items = dayData.items.filter(i=>i.section===section);
+    const items = visibleItems(dayData.items, periodicHidden).filter(i=>i.section===section);
     if(!items.length){ el.innerHTML = `<div class="empty" style="padding:14px 4px;"><p>No hay tareas en esta sección todavía.</p></div>`; return; }
     el.innerHTML = items.map(item => `
       <div class="simple-row ${readonly?'readonly':''}" data-id="${item.id}">
@@ -693,15 +750,21 @@
     }
   }
 
+  let notesSaveTimer = null;
   function renderNotes(readonly){
     const fields = [ {key:"humor", wrap:"notesHumorWrap"}, {key:"cambios", wrap:"notesCambiosWrap"}, {key:"situaciones", wrap:"notesSituacionesWrap"} ];
     fields.forEach(f=>{
       const wrap = document.getElementById(f.wrap);
       if(readonly){ wrap.innerHTML = `<div class="readonly-text">${escapeHtml(dayData.notes[f.key]||"")}</div>`; }
       else{
-        wrap.innerHTML = `<textarea data-key="${f.key}">${escapeHtml(dayData.notes[f.key]||"")}</textarea>`;
+        wrap.innerHTML = `<textarea data-key="${f.key}" data-day="${isoLocal(currentDate)}">${escapeHtml(dayData.notes[f.key]||"")}</textarea>`;
         const ta = wrap.querySelector("textarea");
-        ta.addEventListener("input", ()=>{ dayData.notes[f.key] = ta.value; dayDirty = true; });
+        ta.addEventListener("input", ()=>{
+          dayData.notes[f.key] = ta.value; dayDirty = true;
+          // Save while typing too, so notes survive closing the app before leaving the box.
+          clearTimeout(notesSaveTimer);
+          notesSaveTimer = setTimeout(()=>{ if(dayDirty) saveDay(); }, 800);
+        });
         ta.addEventListener("change", async ()=>{ dayData.notes[f.key] = ta.value; await saveDay(); });
       }
     });
@@ -1196,7 +1259,7 @@
       const d = l.type==="parcial" ? l.date : l.startDate;
       return isoYear(d) === yearNow;
     };
-    const vacaciones = libres.filter(l=> isVacacion(l) && inThisYear(l));
+    const vacaciones = libres.filter(l=> isVacacion(l) && inThisYear(l) && isActiveProfileLibre(l));
     const aprobados = vacaciones.filter(l=> l.status==="aprobado");
     const pendientes = vacaciones.filter(l=> l.status==="pendiente");
     const usedDays = aprobados.reduce((s,l)=> s+libreDayFraction(l), 0);
@@ -1269,6 +1332,7 @@
 
   let openYears = new Set([today.getFullYear()]);
   function renderLibres(){
+    document.getElementById("benefitsHeading").textContent = `💼 Beneficios de ${nannyLabel()}`;
     renderBalance();
     renderBonus2();
 
@@ -1281,7 +1345,7 @@
     ];
 
     const byYear = {};
-    libres.forEach(l=>{
+    libres.filter(isActiveProfileLibre).forEach(l=>{
       const y = isoYear(libreDate(l));
       if(!y) return;
       if(!byYear[y]) byYear[y] = [];
@@ -1394,8 +1458,10 @@
       const existing = libres.find(x=>x.id===editingLibreId);
       entry.status = existing ? existing.status : (autoApproved ? "aprobado" : "pendiente");
       entry.createdAt = existing ? existing.createdAt : entry.createdAt;
+      entry.profileId = existing ? libreProfileId(existing) : (profiles.activeId || "");
     } else {
       entry.status = autoApproved ? "aprobado" : "pendiente";
+      entry.profileId = profiles.activeId || "";
     }
     if(libreCategory === "vacacion" && libreType === "parcial"){
       entry.type = "parcial";
@@ -1427,7 +1493,10 @@
   // ---------- INICIO / BIENVENIDA ----------
   async function renderInicio(){
     updatePadresOnlyUI();
-    document.getElementById("greetText").textContent = role==="niñera" ? "¡Bienvenida, Dayris! 👋" : "¡Bienvenidos! 👋";
+    const nanny = activeProfile();
+    document.getElementById("greetText").textContent = role==="niñera" ? (nanny ? `¡Bienvenida, ${nanny.name}! 👋` : "¡Bienvenida! 👋") : "¡Bienvenidos! 👋";
+    document.getElementById("remHeading").textContent = `📝 Recordatorio para ${nannyLabel()}`;
+    renderProfiles();
     document.getElementById("greetDate").textContent = fmtDateLong(today);
 
     const remindersEl = document.getElementById("reminders");
@@ -1478,10 +1547,11 @@
     });
 
     const todayDay = await getJSON(DAY_PREFIX + todayIso, null);
-    const todayItems = todayDay && Array.isArray(todayDay.items) ? todayDay.items : null;
-    const totalTasks = todayItems ? todayItems.length : templateTasks.length;
+    const todayHidden = await computePeriodicHidden(today);
+    const todayItems = todayDay && Array.isArray(todayDay.items) ? visibleItems(todayDay.items, todayHidden) : null;
+    const totalTasks = todayItems ? todayItems.length : templateTasks.filter(t=>!todayHidden.has(t.id)).length;
     const doneTasks = todayItems ? todayItems.filter(i=>i.done).length : 0;
-    const pendingLibres = libres.filter(l=>l.status==="pendiente").length;
+    const pendingLibres = libres.filter(l=>l.status==="pendiente" && isActiveProfileLibre(l)).length;
 
     document.getElementById("dashStats").innerHTML = `
       <div class="stat-mini"><span class="smi">📋</span><span class="smt">Checklist de hoy</span><span class="smv">${doneTasks}/${totalTasks}</span></div>
@@ -1490,6 +1560,53 @@
       <div class="stat-mini"><span class="smi">🌴</span><span class="smt">Solicitudes pendientes</span><span class="smv">${pendingLibres}</span></div>
     `;
   }
+  function renderProfiles(){
+    const el = document.getElementById("profilesList");
+    if(!el) return;
+    el.innerHTML = profiles.list.length ? profiles.list.map(p=>{
+      const isActive = p.id === profiles.activeId;
+      return `
+      <div class="tpl-item" style="flex-wrap:wrap;">
+        <span style="flex:1;font-weight:700;">${escapeHtml(p.name)}${isActive ? " · activa" : ""}</span>
+        <div class="edit-del-row" style="flex:0 0 100%;margin-top:4px;">
+          ${isActive ? "" : `<button type="button" class="lib-edit prof-use" data-id="${p.id}">Usar este perfil</button>`}
+          <button type="button" class="lib-del prof-del" data-id="${p.id}">✕ Borrar perfil y su Tiempo Libre</button>
+        </div>
+      </div>`;
+    }).join("") : `<div class="empty" style="padding:14px 4px;"><p>No hay perfiles todavía.</p></div>`;
+    el.querySelectorAll(".prof-use").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        profiles.activeId = btn.getAttribute("data-id");
+        await setJSON(PROFILES_KEY, profiles);
+        renderLibres(); renderInicio();
+      });
+    });
+    el.querySelectorAll(".prof-del").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const id = btn.getAttribute("data-id");
+        const p = profiles.list.find(x=>x.id===id);
+        if(!p || !confirm(`¿Borrar el perfil de ${p.name} y todo su Tiempo Libre? Esto no se puede deshacer.`)) return;
+        profiles.list = profiles.list.filter(x=>x.id!==id);
+        if(profiles.activeId === id) profiles.activeId = null;
+        libres = libres.filter(l=> (l.category || "vacacion") !== "vacacion" || libreProfileId(l) !== id);
+        await setJSON(PROFILES_KEY, profiles);
+        await setJSON(LIBRES_KEY, libres);
+        renderLibres(); renderInicio();
+      });
+    });
+  }
+  document.getElementById("addProfileBtn").addEventListener("click", async ()=>{
+    const input = document.getElementById("newProfileName");
+    const name = input.value.trim();
+    if(!name) return;
+    const p = { id: uid(), name };
+    profiles.list.push(p);
+    profiles.activeId = p.id;
+    await setJSON(PROFILES_KEY, profiles);
+    input.value = "";
+    renderLibres(); renderInicio();
+  });
+
   document.getElementById("addRemBtn").addEventListener("click", async ()=>{
     const text = document.getElementById("remText").value.trim();
     const date = document.getElementById("remDate").value;
@@ -1515,9 +1632,10 @@
 
   // ---------- MANUAL BACKUP (always works, no dependency on window.storage) ----------
   function collectState(){
-    return { templateTasks, docs, events, recipes, libres, reminders, dayIso: isoLocal(currentDate), day: dayData, savedAt: new Date().toISOString() };
+    return { templateTasks, docs, events, recipes, libres, reminders, profiles, dayIso: isoLocal(currentDate), day: dayData, savedAt: new Date().toISOString() };
   }
   function applyState(obj){
+    if(obj.profiles) profiles = normalizeProfiles(obj.profiles);
     if(obj.templateTasks) templateTasks = obj.templateTasks;
     if(obj.docs) docs = obj.docs;
     if(obj.events) events = obj.events;
@@ -1537,6 +1655,7 @@
     setJSON(RECIPES_KEY, recipes, true);
     setJSON(LIBRES_KEY, libres, true);
     setJSON(REMINDERS_KEY, reminders, true);
+    if(obj.profiles) setJSON(PROFILES_KEY, profiles, true);
     saveDay();
   }
   function copyTextFallback(text){
@@ -1628,6 +1747,7 @@
     recipes = await getJSON(RECIPES_KEY, []);
     libres = await getJSON(LIBRES_KEY, []);
     reminders = await getJSON(REMINDERS_KEY, []);
+    profiles = normalizeProfiles(await getJSON(PROFILES_KEY, null));
     if(!Array.isArray(docs)) docs = [];
     if(!Array.isArray(events)) events = [];
     if(!Array.isArray(recipes)) recipes = [];
@@ -1640,6 +1760,7 @@
       dayData = saved;
       dayDirty = false;
     }
+    periodicHidden = await computePeriodicHidden(currentDate);
     renderDocFilters(); renderDocs();
     renderCalendar(); renderDayDetail();
     renderRecFilters(); renderRecetas();
@@ -1702,6 +1823,7 @@
     recipes = await getJSON(RECIPES_KEY, []);
     libres = await getJSON(LIBRES_KEY, []);
     reminders = await getJSON(REMINDERS_KEY, []);
+    profiles = normalizeProfiles(await getJSON(PROFILES_KEY, null));
     if(!Array.isArray(docs)) docs = [];
     if(!Array.isArray(events)) events = [];
     if(!Array.isArray(recipes)) recipes = [];
@@ -1725,7 +1847,12 @@
     }
     setInterval(syncFromCloud, 8000);
     document.addEventListener("visibilitychange", ()=>{
-      if(document.hidden) return;
+      if(document.hidden){
+        // Save notes typed right before switching apps or locking the phone.
+        captureNotesFromDom();
+        if(dayDirty) saveDay().then(()=>{ if(window.storage.flush) window.storage.flush().catch(()=>{}); });
+        return;
+      }
       refreshToday();
       syncFromCloud();
     });

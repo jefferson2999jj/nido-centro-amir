@@ -364,7 +364,7 @@ body.kb-open .pin-modal-bg{ align-items:flex-start; padding-top:max(12px, env(sa
 .pin-cancel{background:var(--paper); color:var(--ink);}
 .pin-confirm{background:var(--green); color:#fff;}
 
-.form-modal-bg{ position:fixed; inset:0; background:rgba(20,24,18,0.55); z-index:70; display:flex; align-items:flex-end; justify-content:center; }
+.form-modal-bg{ position:fixed; inset:0; background:rgba(20,24,18,0.55); z-index:95; display:flex; align-items:flex-end; justify-content:center; }
 .form-modal-bg.hidden{display:none;}
 .form-modal{ background:var(--paper); width:100%; max-width:480px; border-radius:30px 30px 0 0; padding:24px 16px calc(26px + env(safe-area-inset-bottom) + var(--kb, 0px)); max-height:calc(85dvh - var(--kb, 0px)); overflow-y:auto; -webkit-overflow-scrolling:touch; animation:slideUpForm 0.22s ease; }
 @keyframes slideUpForm{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
@@ -376,3 +376,18 @@ body.kb-open .pin-modal-bg{ align-items:flex-start; padding-top:max(12px, env(sa
 .form-modal .new-form{ box-shadow:none; padding:18px 16px 6px; margin-bottom:0; }
 
 @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important;} }
+
+/* Bonos y horario editor */
+#editBenefitsBtn{ margin:4px 0 12px; background:var(--paper); box-shadow:none; }
+#editBenefitsBtn[hidden]{ display:none; }
+.bf-bonus{ background:var(--paper); border-radius:16px; padding:10px; margin-bottom:8px; }
+.bf-bonus .field-row{ flex-direction:row; gap:8px; }
+.bf-bonus .field{ margin-bottom:8px; }
+.bf-bonus .field input, .bf-bonus .bf-note{ background:var(--card); }
+.bf-bonus-bottom{ display:flex; align-items:center; gap:8px; }
+.field label.bf-given{ margin:0; display:flex; align-items:center; gap:6px; font-size:14px; font-weight:700; color:var(--ink); white-space:nowrap; }
+.field .bf-given input{ width:22px; height:22px; min-height:0; padding:0; flex:none; accent-color:var(--green); margin:0; }
+.bf-note{ flex:1; min-width:0; box-sizing:border-box; border:1.5px solid transparent; border-radius:12px; padding:10px 12px; min-height:44px; font-family:var(--font); font-size:16px; color:var(--ink); }
+.bf-note:focus{ outline:none; border-color:var(--green); }
+.bf-del{ border:0; background:var(--card); color:var(--red); border-radius:12px; min-width:44px; min-height:44px; font-size:16px; font-weight:800; cursor:pointer; }
+#bfAddBonus{ margin:0 0 14px; }

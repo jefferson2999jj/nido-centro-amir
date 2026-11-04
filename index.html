@@ -265,18 +265,10 @@
       <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg></span><span>2 semanas pagadas al año (10 días laborables)</span></div>
       <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"/></svg></span><span>Holidays — pagos estipulados en el contrato</span></div>
       <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 10h18M8 3v4M16 3v4"/></svg></span><span>Días extras — cualquier día libre adicional que la familia decida dar (ej. vacaciones familiares) también se paga completo</span></div>
-      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.4 0-2.5.7-2.5 1.9 0 2.6 5 1.4 5 4.1 0 1.2-1.1 2-2.5 2-1.2 0-2.2-.5-2.7-1.4M12 6.5V8M12 16v1.5"/></svg></span><span>2 bonos al año</span></div>
-      <div class="bonus-list">
-        <div class="bonus-item given">
-          <span>Bono 1 — $500</span>
-          <span class="status-pill aprobado">Entregado · marzo</span>
-        </div>
-        <div class="bonus-item" id="bonus2Row">
-          <span>Bono 2</span>
-          <span class="status-pill pendiente" id="bonus2Status">Pendiente</span>
-        </div>
-      </div>
-      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg></span><span>Horario: 8:00 am – 4:00 pm</span></div>
+      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.4 0-2.5.7-2.5 1.9 0 2.6 5 1.4 5 4.1 0 1.2-1.1 2-2.5 2-1.2 0-2.2-.5-2.7-1.4M12 6.5V8M12 16v1.5"/></svg></span><span id="bonusCount">2 bonos al año</span></div>
+      <div class="bonus-list" id="bonusList"></div>
+      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg></span><span id="scheduleText">Horario: 8:00 am – 4:00 pm</span></div>
+      <button type="button" class="toggle-btn" id="editBenefitsBtn" hidden>Editar bonos y horario</button>
       <div class="benefit-note">Según el acuerdo firmado: avisar con 2 semanas de anticipación cuando sea un día planeado.</div>
 
       <div class="balance-box">
@@ -369,6 +361,22 @@
       </div>
       <div class="field"><label>Motivo (opcional)</label><textarea id="libReason" placeholder="Motivo…"></textarea></div>
       <button class="submit-btn" id="addLibreBtn">Enviar solicitud</button>
+    </div>
+  </div>
+</div>
+
+<div class="form-modal-bg hidden" id="benefitsFormBg">
+  <div class="form-modal">
+    <div class="form-modal-head"><h3 id="benefitsFormTitle">Bonos y horario</h3><button class="form-modal-close" id="closeBenefitsForm">✕</button></div>
+    <div class="new-form" id="benefitsForm">
+      <div class="field"><label>Bonos</label><div id="bfBonuses"></div></div>
+      <button type="button" class="toggle-btn" id="bfAddBonus">＋ Agregar bono</button>
+      <div class="field-row">
+        <div class="field"><label>Hora de entrada</label><input type="time" id="bfStart"></div>
+        <div class="field"><label>Hora de salida</label><input type="time" id="bfEnd"></div>
+      </div>
+      <div class="field"><label>Días (opcional)</label><input type="text" id="bfDays" placeholder="Ej. Lunes a viernes"></div>
+      <button class="submit-btn" id="saveBenefitsBtn">Guardar</button>
     </div>
   </div>
 </div>

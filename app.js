@@ -222,7 +222,8 @@
   const EVENTS_KEY = "amir:events";
   const RECIPES_KEY = "amir:recipes";
   const LIBRES_KEY = "amir:libres";
-  const BONUS_KEY = "amir:bonus2";
+  const BONUS_KEY = "amir:bonus2"; // legacy: Bono 2 status from before bonuses were editable
+  const BENEFITS_KEY = "amir:benefits"; // { [profileId]: { bonuses:[{id,name,amount,given,note}], schedule:{start,end,days} } }
   const REMINDERS_KEY = "amir:reminders";
   const PROFILES_KEY = "amir:profiles";
   const LEGACY_PROFILE_ID = "dayris"; // Tiempo Libre saved before profiles existed belongs to this profile
@@ -259,6 +260,7 @@
   let templateTasks = [];
   let docs = [], events = [], recipes = [], libres = [], reminders = [];
   let profiles = normalizeProfiles(null);
+  let benefits = {}, legacyBonus2Given = false;
   let periodicHidden = new Set();
   let docFilter = "Todos";
   let calViewMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -470,6 +472,8 @@
     if(backup) backup.hidden = !padres;
     if(remForm) remForm.hidden = !padres;
     if(profilesCard) profilesCard.hidden = !padres;
+    const editBenefits = document.getElementById("editBenefitsBtn");
+    if(editBenefits) editBenefits.hidden = !padres;
   }
   document.getElementById("roleNinera").addEventListener("click", ()=> setRole("niñera"));
   document.getElementById("rolePadres").addEventListener("click", ()=> requestPadresAccess());
@@ -484,6 +488,7 @@
       document.getElementById("eventFormBg"),
       document.getElementById("recFormBg"),
       document.getElementById("libreFormBg"),
+      document.getElementById("benefitsFormBg"),
       document.getElementById("imgLightbox")
     ].filter(Boolean);
   }
@@ -1307,20 +1312,101 @@
     document.getElementById("balanceDetail").textContent =
       `Tiempo Libre usado: ${Math.round(usedDays*10)/10} días · Pendientes: ${Math.round(pendingDays*10)/10} días (no descontados) · Holidays/Días Extras aparte: ${holidayDays} días · Año ${yearNow}`;
   }
-  function renderBonus2(){
-    getJSON(BONUS_KEY, {given:false}).then(b=>{
-      const pill = document.getElementById("bonus2Status");
-      if(!pill) return;
-      pill.textContent = b.given ? "Entregado" : "Pendiente";
-      pill.className = "status-pill " + (b.given ? "aprobado" : "pendiente");
-      pill.style.cursor = role==="padres" ? "pointer" : "default";
-      pill.onclick = role==="padres" ? async ()=>{
-        const nb = { given: !b.given };
-        await setJSON(BONUS_KEY, nb);
-        renderBonus2();
-      } : null;
-    });
+  // ---------- bonuses & work schedule (per nanny profile, editable by padres) ----------
+  function benefitsFor(){
+    const key = profiles.activeId || "";
+    if(!benefits[key]){
+      benefits[key] = {
+        bonuses: key === LEGACY_PROFILE_ID
+          ? [ { id:"b1", name:"Bono 1", amount:"$500", given:true, note:"marzo" },
+              { id:"b2", name:"Bono 2", amount:"", given:legacyBonus2Given, note:"" } ]
+          : [ { id:"b1", name:"Bono 1", amount:"", given:false, note:"" },
+              { id:"b2", name:"Bono 2", amount:"", given:false, note:"" } ],
+        schedule: { start:"08:00", end:"16:00", days:"" }
+      };
+    }
+    return benefits[key];
   }
+  function saveBenefits(){ return setJSON(BENEFITS_KEY, benefits); }
+  function renderBenefits(){
+    const b = benefitsFor();
+    const n = b.bonuses.length;
+    document.getElementById("bonusCount").textContent = n ? `${n} ${n===1 ? "bono" : "bonos"} al año` : "Sin bonos";
+    const list = document.getElementById("bonusList");
+    list.innerHTML = b.bonuses.map(x=>`
+      <div class="bonus-item${x.given ? " given" : ""}">
+        <span>${escapeHtml(x.name || "Bono")}${x.amount ? " — "+escapeHtml(x.amount) : ""}</span>
+        <span class="status-pill ${x.given ? "aprobado" : "pendiente"}" data-id="${escapeHtml(x.id)}" style="cursor:${role==="padres" ? "pointer" : "default"};">${x.given ? "Entregado"+(x.note ? " · "+escapeHtml(x.note) : "") : "Pendiente"}</span>
+      </div>`).join("");
+    if(role === "padres"){
+      list.querySelectorAll(".status-pill").forEach(pill=>{
+        pill.addEventListener("click", async ()=>{
+          const x = b.bonuses.find(y=>y.id===pill.getAttribute("data-id"));
+          if(!x) return;
+          x.given = !x.given;
+          renderBenefits();
+          await saveBenefits();
+        });
+      });
+    }
+    const s = b.schedule;
+    const t = v => fmtTime12(v).replace(/(am|pm)$/, " $1") || "—";
+    document.getElementById("scheduleText").textContent =
+      `Horario: ${t(s.start)} – ${t(s.end)}${s.days ? " · "+s.days : ""}`;
+  }
+  function bonusRowHtml(x){
+    return `
+      <div class="bf-bonus" data-id="${escapeHtml(x.id)}">
+        <div class="field-row">
+          <div class="field"><input type="text" class="bf-name" placeholder="Nombre" value="${escapeHtml(x.name)}"></div>
+          <div class="field"><input type="text" class="bf-amount" placeholder="Monto" value="${escapeHtml(x.amount)}"></div>
+        </div>
+        <div class="bf-bonus-bottom">
+          <label class="bf-given"><input type="checkbox" class="bf-given-cb"${x.given ? " checked" : ""}> Entregado</label>
+          <input type="text" class="bf-note" placeholder="Cuándo" value="${escapeHtml(x.note)}">
+          <button type="button" class="lib-del bf-del" aria-label="Quitar bono">✕</button>
+        </div>
+      </div>`;
+  }
+  function openBenefitsForm(){
+    const b = benefitsFor();
+    document.getElementById("benefitsFormTitle").textContent = `Bonos y horario de ${nannyLabel()}`;
+    document.getElementById("bfBonuses").innerHTML = b.bonuses.map(bonusRowHtml).join("");
+    document.getElementById("bfStart").value = b.schedule.start || "";
+    document.getElementById("bfEnd").value = b.schedule.end || "";
+    document.getElementById("bfDays").value = b.schedule.days || "";
+    openOverlay(document.getElementById("benefitsFormBg"));
+  }
+  document.getElementById("editBenefitsBtn").addEventListener("click", openBenefitsForm);
+  document.getElementById("closeBenefitsForm").addEventListener("click", ()=> requestCloseOverlay());
+  document.getElementById("benefitsFormBg").addEventListener("click", (e)=>{ if(e.target.id === "benefitsFormBg") requestCloseOverlay(); });
+  document.getElementById("bfBonuses").addEventListener("click", (e)=>{
+    const del = e.target.closest(".bf-del");
+    if(del) del.closest(".bf-bonus").remove();
+  });
+  document.getElementById("bfAddBonus").addEventListener("click", ()=>{
+    const wrap = document.getElementById("bfBonuses");
+    const name = "Bono " + (wrap.querySelectorAll(".bf-bonus").length + 1);
+    wrap.insertAdjacentHTML("beforeend", bonusRowHtml({ id:uid(), name, amount:"", given:false, note:"" }));
+  });
+  document.getElementById("saveBenefitsBtn").addEventListener("click", async ()=>{
+    const b = benefitsFor();
+    b.bonuses = [...document.querySelectorAll("#bfBonuses .bf-bonus")].map(row=>({
+      id: row.getAttribute("data-id"),
+      name: row.querySelector(".bf-name").value.trim() || "Bono",
+      amount: row.querySelector(".bf-amount").value.trim(),
+      given: row.querySelector(".bf-given-cb").checked,
+      note: row.querySelector(".bf-note").value.trim()
+    }));
+    b.schedule = {
+      start: document.getElementById("bfStart").value,
+      end: document.getElementById("bfEnd").value,
+      days: document.getElementById("bfDays").value.trim()
+    };
+    renderBenefits();
+    requestCloseOverlay();
+    await saveBenefits();
+  });
 
   function renderLibreCard(l){
     let dateLine, timeLine = "";
@@ -1365,7 +1451,7 @@
   function renderLibres(){
     document.getElementById("benefitsHeading").textContent = `Beneficios de ${nannyLabel()}`;
     renderBalance();
-    renderBonus2();
+    renderBenefits();
 
     const libreDate = l => l.type === "parcial" ? l.date : l.startDate;
     const el = document.getElementById("libresList");
@@ -1630,12 +1716,14 @@
       btn.addEventListener("click", async ()=>{
         const id = btn.getAttribute("data-id");
         const p = profiles.list.find(x=>x.id===id);
-        if(!p || !confirm(`¿Borrar el perfil de ${p.name} y todo su Tiempo Libre? Esto no se puede deshacer.`)) return;
+        if(!p || !confirm(`¿Borrar el perfil de ${p.name}, todo su Tiempo Libre, sus bonos y su horario? Esto no se puede deshacer.`)) return;
         profiles.list = profiles.list.filter(x=>x.id!==id);
         if(profiles.activeId === id) profiles.activeId = null;
         libres = libres.filter(l=> (l.category || "vacacion") !== "vacacion" || libreProfileId(l) !== id);
+        delete benefits[id];
         await setJSON(PROFILES_KEY, profiles);
         await setJSON(LIBRES_KEY, libres);
+        await setJSON(BENEFITS_KEY, benefits);
         renderLibres(); renderInicio();
       });
     });
@@ -1677,10 +1765,11 @@
 
   // ---------- MANUAL BACKUP (always works, no dependency on window.storage) ----------
   function collectState(){
-    return { templateTasks, docs, events, recipes, libres, reminders, profiles, dayIso: isoLocal(currentDate), day: dayData, savedAt: new Date().toISOString() };
+    return { templateTasks, docs, events, recipes, libres, reminders, profiles, benefits, dayIso: isoLocal(currentDate), day: dayData, savedAt: new Date().toISOString() };
   }
   function applyState(obj){
     if(obj.profiles) profiles = normalizeProfiles(obj.profiles);
+    if(obj.benefits && typeof obj.benefits === "object") benefits = obj.benefits;
     if(obj.templateTasks) templateTasks = obj.templateTasks;
     if(obj.docs) docs = obj.docs;
     if(obj.events) events = obj.events;
@@ -1701,6 +1790,7 @@
     setJSON(LIBRES_KEY, libres, true);
     setJSON(REMINDERS_KEY, reminders, true);
     if(obj.profiles) setJSON(PROFILES_KEY, profiles, true);
+    if(obj.benefits) setJSON(BENEFITS_KEY, benefits, true);
     saveDay();
   }
   function copyTextFallback(text){
@@ -1793,6 +1883,9 @@
     libres = await getJSON(LIBRES_KEY, []);
     reminders = await getJSON(REMINDERS_KEY, []);
     profiles = normalizeProfiles(await getJSON(PROFILES_KEY, null));
+    benefits = await getJSON(BENEFITS_KEY, {});
+    if(!benefits || typeof benefits !== "object" || Array.isArray(benefits)) benefits = {};
+    legacyBonus2Given = !!(await getJSON(BONUS_KEY, {given:false})).given;
     if(!Array.isArray(docs)) docs = [];
     if(!Array.isArray(events)) events = [];
     if(!Array.isArray(recipes)) recipes = [];
@@ -1869,6 +1962,9 @@
     libres = await getJSON(LIBRES_KEY, []);
     reminders = await getJSON(REMINDERS_KEY, []);
     profiles = normalizeProfiles(await getJSON(PROFILES_KEY, null));
+    benefits = await getJSON(BENEFITS_KEY, {});
+    if(!benefits || typeof benefits !== "object" || Array.isArray(benefits)) benefits = {};
+    legacyBonus2Given = !!(await getJSON(BONUS_KEY, {given:false})).given;
     if(!Array.isArray(docs)) docs = [];
     if(!Array.isArray(events)) events = [];
     if(!Array.isArray(recipes)) recipes = [];

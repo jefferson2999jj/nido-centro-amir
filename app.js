@@ -250,8 +250,6 @@
     { id:"h9", section:"hogar", text:"Limpiar, aspirar y sacudir habitación (1x semana)" },
     { id:"h10", section:"hogar", text:"Remover ropa pequeña de gaveta y closet — guardar en bolsa plástica (1x mes)" },
   ];
-  // Once done, these stay hidden for the rest of the week (Sun–Sat, like the week strip) or month.
-  const PERIODIC_TASKS = { h6:"week", h10:"month" };
 
   let role = "niñera";
   let today = new Date();
@@ -347,17 +345,30 @@
     s.setDate(s.getDate() - s.getDay());
     return s;
   }
-  // Ids of weekly/monthly tasks already done on an earlier day of the same week/month as d.
+  // "(2x semana)", "(mínimo 1x por semana)", "(1x mes)" in a task's text → how often it is due.
+  function taskFrequency(text){
+    const m = /(\d+)\s*x\s*(?:por\s+|a\s+la\s+|al\s+)?(semana|mes)/i.exec(text || "");
+    return m ? { times: Number(m[1]), period: m[2].toLowerCase() === "mes" ? "month" : "week" } : null;
+  }
+  // Ids of weekly/monthly tasks already done enough times on earlier days of the same
+  // week (Sun–Sat, like the week strip) or month as d; they stay hidden for the rest of it.
   async function computePeriodicHidden(d){
     const hidden = new Set();
     const end = isoLocal(d);
-    for(const id of Object.keys(PERIODIC_TASKS)){
-      const day = periodStart(d, PERIODIC_TASKS[id]);
-      while(isoLocal(day) < end){
-        const saved = await getJSON(DAY_PREFIX + isoLocal(day), null);
-        if(saved && Array.isArray(saved.items) && saved.items.some(i=> i.id===id && i.done)){ hidden.add(id); break; }
-        day.setDate(day.getDate()+1);
-      }
+    const freqs = templateTasks.map(t=>({ id:t.id, f:taskFrequency(t.text) })).filter(x=>x.f);
+    if(!freqs.length) return hidden;
+    const doneDays = {}; // iso -> Set of done task ids
+    const day = new Date(Math.min(periodStart(d, "week"), periodStart(d, "month")));
+    while(isoLocal(day) < end){
+      const iso = isoLocal(day);
+      const saved = await getJSON(DAY_PREFIX + iso, null);
+      doneDays[iso] = new Set(saved && Array.isArray(saved.items) ? saved.items.filter(i=>i.done).map(i=>i.id) : []);
+      day.setDate(day.getDate()+1);
+    }
+    for(const { id, f } of freqs){
+      const start = isoLocal(periodStart(d, f.period));
+      const count = Object.keys(doneDays).filter(iso=> iso >= start && doneDays[iso].has(id)).length;
+      if(count >= f.times) hidden.add(id);
     }
     return hidden;
   }

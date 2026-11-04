@@ -1,4 +1,4 @@
-const CACHE = "nido-v12";
+const CACHE = "nido-v13";
 const ASSETS = [
   "./",
   "./index.html",

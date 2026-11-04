@@ -302,6 +302,25 @@
   }
   function nowHHMM(){ const d = new Date(); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
   function escapeHtml(s){ const d=document.createElement("div"); d.textContent=s||""; return d.innerHTML; }
+  const ICONS = {
+    check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    x:'<path d="M6 6l12 12M18 6L6 18"/>',
+    hoy:'<path d="M9 5h10M9 12h10M9 19h10M4 5l1 1 2-2M4 12l1 1 2-2M4 19l1 1 2-2"/>',
+    docs:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h6"/>',
+    cal:'<path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 10h18M8 3v4M16 3v4"/>',
+    recetas:'<path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 0-3 3-3 6s1 4 3 4v8"/>',
+    libres:'<path d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>',
+    bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>'
+  };
+  function ic(name){ return `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`; }
+  // "Lavado de ropa (mínimo 1x por semana)" -> title "Lavado de ropa", sub "Mínimo 1x por semana"
+  function splitTask(text){
+    const m = /^(.*\S)\s*\(([^()]+)\)\s*$/.exec(text || "");
+    if(!m) return { title: text || "", sub: "" };
+    return { title: m[1], sub: m[2].charAt(0).toUpperCase() + m[2].slice(1) };
+  }
+  const RING_C = 2 * Math.PI * 30;
+  function setRing(el, done, total){ if(el) el.setAttribute("stroke-dasharray", `${total ? (RING_C*done/total).toFixed(1) : 0} 999`); }
   function uid(){ return Date.now()+"-"+Math.random().toString(36).slice(2,7); }
   function isCookingDay(d){ const dow = d.getDay(); return dow===1 || dow===4; } // lunes=1, jueves=4
 
@@ -550,7 +569,9 @@
     renderChecklist();
   }
   function renderHeaderNav(){
-    document.getElementById("dayLabel").textContent = fmtDateLong(currentDate);
+    const dow = new Intl.DateTimeFormat("es-ES", {weekday:"long"}).format(currentDate);
+    const dm = new Intl.DateTimeFormat("es-ES", {day:"numeric", month:"long"}).format(currentDate);
+    document.getElementById("dayLabel").innerHTML = `<span class="dl-dow">${escapeHtml(dow.charAt(0).toUpperCase()+dow.slice(1))}</span><span class="dl-date">${escapeHtml(dm)}</span>`;
     const isToday = isoLocal(currentDate) === isoLocal(today);
     document.getElementById("gotoToday").style.display = isToday ? "none" : "inline-block";
     document.getElementById("nextDay").disabled = isToday;
@@ -563,11 +584,10 @@
     const DOW = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - today.getDay()); // Sunday of the current real week
-    const monthLabel = new Intl.DateTimeFormat("es-ES", {month:"short", year:"numeric"}).format(weekStart);
     const isos = [];
     for(let i=0;i<7;i++){ const d = new Date(weekStart); d.setDate(weekStart.getDate()+i); isos.push(isoLocal(d)); }
     const importantFlags = await Promise.all(isos.map(iso => getJSON(DAY_PREFIX+iso, null).then(d => !!(d && d.important))));
-    let html = `<div class="wk-month">${escapeHtml(monthLabel)}</div>`;
+    let html = "";
     isos.forEach((iso, i)=>{
       const [y,m,dd] = iso.split("-").map(Number);
       const d = new Date(y, m-1, dd);
@@ -577,7 +597,7 @@
         <div class="wk-day ${isToday?'is-today':''} ${isSel?'is-selected':''}" data-iso="${iso}">
           <div class="wk-dow">${DOW[i]}</div>
           <div class="wk-num">${d.getDate()}</div>
-          <div class="wk-star">${importantFlags[i] ? '⭐' : ''}</div>
+          <div class="wk-star ${importantFlags[i] ? 'on' : ''}"></div>
         </div>`;
     });
     el.innerHTML = html;
@@ -637,13 +657,17 @@
     const total = shown.length;
     const done = shown.filter(i=>i.done).length;
     document.getElementById("progressCount").textContent = `${done}/${total}`;
-    document.getElementById("progressFill").style.width = total ? `${(done/total)*100}%` : "0%";
+    setRing(document.getElementById("progressRing"), done, total);
+    [["actividades","countActividades"],["hogar","countHogar"]].forEach(([sec, id])=>{
+      const xs = shown.filter(i=>i.section===sec);
+      document.getElementById(id).textContent = `${xs.filter(i=>i.done).length}/${xs.length}`;
+    });
 
     const lockRow = document.getElementById("lockRow");
     lockRow.style.display = dayData.locked ? "flex" : "none";
     if(dayData.locked) document.getElementById("lockText").textContent = role==="padres"
-      ? `🔒 Firmado a las ${dayData.signedAt} — puedes editar o borrar`
-      : `🔒 Firmado a las ${dayData.signedAt} — checklist bloqueado`;
+      ? `Firmado a las ${dayData.signedAt} · puedes editar o borrar`
+      : `Firmado a las ${dayData.signedAt} · checklist bloqueado`;
     document.getElementById("unlockLink").style.display = (dayData.locked && role==="padres") ? "inline" : "none";
     document.getElementById("signBtn").style.display = (role==="niñera" && !dayData.locked) ? "block" : "none";
 
@@ -716,12 +740,18 @@
     const el = document.getElementById(elId);
     const items = visibleItems(dayData.items, periodicHidden).filter(i=>i.section===section);
     if(!items.length){ el.innerHTML = `<div class="empty" style="padding:14px 4px;"><p>No hay tareas en esta sección todavía.</p></div>`; return; }
-    el.innerHTML = items.map(item => `
-      <div class="simple-row ${readonly?'readonly':''}" data-id="${item.id}">
-        <div class="simple-check ${item.done?'done':''}">${item.done?'✓':''}</div>
-        <div class="simple-text ${item.done?'done':''}">${escapeHtml(item.text)}</div>
-        ${role==="padres" ? `<button type="button" class="row-del" data-id="${item.id}" aria-label="Borrar">✕</button>` : ""}
-      </div>`).join("");
+    el.innerHTML = items.map(item => {
+      const t = splitTask(item.text);
+      const mark = readonly
+        ? (item.done ? `<span class="row-tag ok">${ic("check")}Hecho</span>` : `<span class="row-tag no">No se hizo</span>`)
+        : `<div class="simple-check ${item.done?'done':''}">${item.done?ic("check"):''}</div>`;
+      return `
+      <div class="simple-row ${item.done?'done':''} ${readonly?'readonly':''}" data-id="${item.id}">
+        <div class="simple-text"><div class="st-title">${escapeHtml(t.title)}</div>${t.sub ? `<div class="st-sub">${escapeHtml(t.sub)}</div>` : ""}</div>
+        ${mark}
+        ${role==="padres" ? `<button type="button" class="row-del" data-id="${item.id}" aria-label="Borrar">${ic("x")}</button>` : ""}
+      </div>`;
+    }).join("");
     if(!readonly){
       el.querySelectorAll(".simple-row").forEach(row=>{
         row.addEventListener("click", async (e)=>{
@@ -752,6 +782,7 @@
 
   let notesSaveTimer = null;
   function renderNotes(readonly){
+    document.getElementById("autosaveNote").style.display = readonly ? "none" : "";
     const fields = [ {key:"humor", wrap:"notesHumorWrap"}, {key:"cambios", wrap:"notesCambiosWrap"}, {key:"situaciones", wrap:"notesSituacionesWrap"} ];
     fields.forEach(f=>{
       const wrap = document.getElementById(f.wrap);
@@ -1332,7 +1363,7 @@
 
   let openYears = new Set([today.getFullYear()]);
   function renderLibres(){
-    document.getElementById("benefitsHeading").textContent = `💼 Beneficios de ${nannyLabel()}`;
+    document.getElementById("benefitsHeading").textContent = `Beneficios de ${nannyLabel()}`;
     renderBalance();
     renderBonus2();
 
@@ -1495,7 +1526,7 @@
     updatePadresOnlyUI();
     const nanny = activeProfile();
     document.getElementById("greetText").textContent = role==="niñera" ? (nanny ? `¡Bienvenida, ${nanny.name}! 👋` : "¡Bienvenida! 👋") : "¡Bienvenidos! 👋";
-    document.getElementById("remHeading").textContent = `📝 Recordatorio para ${nannyLabel()}`;
+    document.getElementById("remHeading").textContent = `Recordatorio para ${nannyLabel()}`;
     renderProfiles();
     document.getElementById("greetDate").textContent = fmtDateLong(today);
 
@@ -1503,13 +1534,13 @@
     let cards = "";
 
     if(isCookingDay(today)){
-      cards += `<div class="reminder-card cook"><span class="ric">🍲</span><div><b>Hoy toca cocinar</b><span class="sub">Prepara 2 recetas para Amir (lunes y jueves)</span></div></div>`;
+      cards += `<div class="reminder-card cook"><span class="ric">${ic("recetas")}</span><div class="rc-body"><b>Hoy toca cocinar</b><span class="sub">Prepara 2 recetas para Amir (lunes y jueves)</span></div></div>`;
     }
 
     const todayIso = isoLocal(today);
     const todayEvents = events.filter(e=>e.date===todayIso).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
     todayEvents.forEach(ev=>{
-      cards += `<div class="reminder-card event"><span class="ric">📅</span><div><b>${escapeHtml(ev.title)}</b><span class="sub">Hoy${ev.time?" a las "+fmtTime12(ev.time):""}</span></div></div>`;
+      cards += `<div class="reminder-card event"><span class="ric">${ic("cal")}</span><div class="rc-body"><b>${escapeHtml(ev.title)}</b><span class="sub">Hoy${ev.time?" a las "+fmtTime12(ev.time):""}</span></div></div>`;
     });
 
     const in7 = new Date(today); in7.setDate(in7.getDate()+7);
@@ -1520,7 +1551,7 @@
       return ed > today && ed <= in7;
     }).sort((a,b)=> a.date.localeCompare(b.date)).slice(0,3);
     upcoming.forEach(ev=>{
-      cards += `<div class="reminder-card event"><span class="ric">📅</span><div><b>${escapeHtml(ev.title)}</b><span class="sub">${fmtDateShort(ev.date)}${ev.time?" · "+fmtTime12(ev.time):""}</span></div></div>`;
+      cards += `<div class="reminder-card event"><span class="ric">${ic("cal")}</span><div class="rc-body"><b>${escapeHtml(ev.title)}</b><span class="sub">${fmtDateShort(ev.date)}${ev.time?" · "+fmtTime12(ev.time):""}</span></div></div>`;
     });
 
     const visibleManual = (reminders || []).filter(r=>{
@@ -1533,7 +1564,7 @@
     }).sort((a,b)=> (a.date||"").localeCompare(b.date||""));
     visibleManual.forEach(r=>{
       const when = r.date ? (r.date===todayIso ? "Hoy" : fmtDateShort(r.date)) : "Siempre visible";
-      cards += `<div class="reminder-card manual"><span class="ric">📝</span><div style="flex:1;"><b>${escapeHtml(r.text)}</b><span class="sub">${when}</span></div>${role==="padres"?`<button type="button" class="item-del rem-del" data-id="${r.id}">✕</button>`:""}</div>`;
+      cards += `<div class="reminder-card manual"><span class="ric">${ic("bell")}</span><div class="rc-body"><b>${escapeHtml(r.text)}</b><span class="sub">${when}</span></div>${role==="padres"?`<button type="button" class="item-del rem-del" data-id="${r.id}" aria-label="Borrar">${ic("x")}</button>`:""}</div>`;
     });
 
     if(!cards) cards = `<div class="empty" style="padding:14px 4px;"><p>No hay recordatorios por ahora. ¡Buen día! 🌤️</p></div>`;
@@ -1554,12 +1585,26 @@
     const pendingLibres = libres.filter(l=>l.status==="pendiente" && isActiveProfileLibre(l)).length;
 
     document.getElementById("dashStats").innerHTML = `
-      <div class="stat-mini"><span class="smi">📋</span><span class="smt">Checklist de hoy</span><span class="smv">${doneTasks}/${totalTasks}</span></div>
-      <div class="stat-mini"><span class="smi">📄</span><span class="smt">Documentos guardados</span><span class="smv">${docs.length}</span></div>
-      <div class="stat-mini"><span class="smi">🍽️</span><span class="smt">Recetas guardadas</span><span class="smv">${recipes.length}</span></div>
-      <div class="stat-mini"><span class="smi">🌴</span><span class="smt">Solicitudes pendientes</span><span class="smv">${pendingLibres}</span></div>
+      <div class="stat-mini"><span class="smi">${ic("hoy")}</span><span class="smv">${doneTasks}/${totalTasks}</span><span class="smt">Checklist de hoy</span></div>
+      <div class="stat-mini"><span class="smi">${ic("docs")}</span><span class="smv">${docs.length}</span><span class="smt">Documentos</span></div>
+      <div class="stat-mini"><span class="smi">${ic("recetas")}</span><span class="smv">${recipes.length}</span><span class="smt">Recetas</span></div>
+      <div class="stat-mini ${pendingLibres ? "warn" : ""}"><span class="smi">${ic("libres")}</span><span class="smv">${pendingLibres}</span><span class="smt">Solicitudes pendientes</span></div>
     `;
+
+    const signed = !!(todayDay && todayDay.locked);
+    const nextItem = (todayItems || templateTasks.filter(t=>!todayHidden.has(t.id))).find(i=>!i.done);
+    const left = totalTasks - doneTasks;
+    setRing(document.getElementById("homeRing"), doneTasks, totalTasks);
+    document.getElementById("homeCount").textContent = `${doneTasks}/${totalTasks}`;
+    document.getElementById("homeTitle").textContent = signed ? "Día firmado"
+      : (totalTasks && !left) ? "¡Todo listo por hoy!"
+      : `${left} ${left===1 ? "tarea pendiente" : "tareas pendientes"}`;
+    document.getElementById("homeNext").textContent = (!signed && nextItem) ? `Sigue: ${splitTask(nextItem.text).title}` : "";
   }
+  document.getElementById("homeToday").addEventListener("click", ()=>{
+    document.querySelector('.nav-btn[data-tab="hoy"]').click();
+    window.scrollTo(0, 0);
+  });
   function renderProfiles(){
     const el = document.getElementById("profilesList");
     if(!el) return;

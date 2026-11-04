@@ -345,19 +345,45 @@
     s.setDate(s.getDate() - s.getDay());
     return s;
   }
-  // "(2x semana)", "(mínimo 1x por semana)", "(1x mes)" in a task's text → how often it is due.
-  function taskFrequency(text){
-    const m = /(\d+)\s*x\s*(?:por\s+|a\s+la\s+|al\s+)?(semana|mes)/i.exec(text || "");
-    return m ? { times: Number(m[1]), period: m[2].toLowerCase() === "mes" ? "month" : "week" } : null;
+  // A task's text says when it is due: "(2x semana)", "(1x por semana)", "(1x mes)" and/or day names ("lunes y jueves").
+  const DOW_NAMES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+  const DOW_RE = [/domingo/i,/lunes/i,/martes/i,/mi[ée]rcoles/i,/jueves/i,/viernes/i,/s[áa]bado/i];
+  function taskSchedule(text){
+    text = text || "";
+    const m = /(\d+)\s*x\s*(?:por\s+|a\s+la\s+|al\s+)?(semana|mes)/i.exec(text);
+    const days = DOW_RE.map((re,i)=> re.test(text) ? i : -1).filter(i=> i >= 0);
+    if(!m && !days.length) return null;
+    return { times: m ? Number(m[1]) : days.length, period: m && m[2].toLowerCase() === "mes" ? "month" : "week", days };
   }
-  // Ids of weekly/monthly tasks already done enough times on earlier days of the same
-  // week (Sun–Sat, like the week strip) or month as d; they stay hidden for the rest of it.
+  // The active nanny's work days (0=domingo … 6=sábado) from her Horario.
+  function workdays(){
+    const w = benefitsFor().schedule.workdays;
+    return Array.isArray(w) && w.length ? w : [1,2,3,4,5];
+  }
+  // Due dates (sorted iso) of a scheduled task in the week/month that starts at `start`.
+  // Named days that aren't work days move to the next work day; "Nx" tasks are spread over the work days.
+  function dueDates(sch, start, work){
+    const end = new Date(start);
+    if(sch.period === "month") end.setMonth(end.getMonth()+1); else end.setDate(end.getDate()+7);
+    const all = [];
+    for(const d = new Date(start); d < end; d.setDate(d.getDate()+1)) all.push(new Date(d));
+    const workList = all.filter(d=> work.includes(d.getDay()));
+    if(!workList.length) return [];
+    const due = sch.days.length
+      ? all.filter(d=> sch.days.includes(d.getDay())).map(d=> workList.find(w=> w >= d)).filter(Boolean)
+      : Array.from({ length: Math.min(sch.times, workList.length) }, (_, i)=> workList[Math.round(i * workList.length / sch.times)]);
+    return [...new Set(due.map(isoLocal))].sort();
+  }
+  // Scheduled tasks to hide on day d: not a work day, not due yet, or already done as often as due so far.
+  // A due task that wasn't done carries over to the next work days; hidden.overdue maps its id to the missed due date.
   async function computePeriodicHidden(d){
     const hidden = new Set();
+    hidden.overdue = new Map();
     const end = isoLocal(d);
-    const freqs = templateTasks.map(t=>({ id:t.id, f:taskFrequency(t.text) })).filter(x=>x.f);
-    if(!freqs.length) return hidden;
-    const doneDays = {}; // iso -> Set of done task ids
+    const work = workdays();
+    const tasks = templateTasks.map(t=>({ id:t.id, sch:taskSchedule(t.text) })).filter(x=>x.sch);
+    if(!tasks.length) return hidden;
+    const doneDays = {}; // iso -> Set of done task ids, for earlier days of this week/month
     const day = new Date(Math.min(periodStart(d, "week"), periodStart(d, "month")));
     while(isoLocal(day) < end){
       const iso = isoLocal(day);
@@ -365,12 +391,22 @@
       doneDays[iso] = new Set(saved && Array.isArray(saved.items) ? saved.items.filter(i=>i.done).map(i=>i.id) : []);
       day.setDate(day.getDate()+1);
     }
-    for(const { id, f } of freqs){
-      const start = isoLocal(periodStart(d, f.period));
-      const count = Object.keys(doneDays).filter(iso=> iso >= start && doneDays[iso].has(id)).length;
-      if(count >= f.times) hidden.add(id);
+    const isWorkday = work.includes(d.getDay());
+    for(const { id, sch } of tasks){
+      if(!isWorkday){ hidden.add(id); continue; }
+      const start = periodStart(d, sch.period);
+      const startIso = isoLocal(start);
+      const due = dueDates(sch, start, work).filter(iso=> iso <= end);
+      const done = Object.keys(doneDays).filter(iso=> iso >= startIso && doneDays[iso].has(id)).length;
+      if(done >= due.length) hidden.add(id);
+      else if(due[done] < end) hidden.overdue.set(id, due[done]);
     }
     return hidden;
+  }
+  async function refreshTaskSchedule(){
+    periodicHidden = await computePeriodicHidden(currentDate);
+    renderChecklist();
+    await renderInicio();
   }
   function visibleItems(items, hidden){ return items.filter(i=> i.done || !hidden.has(i.id)); }
 
@@ -752,6 +788,12 @@
     }
   });
 
+  function overdueTag(item){
+    const since = !item.done && periodicHidden.overdue && periodicHidden.overdue.get(item.id);
+    if(!since) return "";
+    const d = new Date(since + "T00:00:00");
+    return `<span class="due-tag">Atrasada · era para el ${DOW_NAMES[d.getDay()]} ${d.getDate()}</span>`;
+  }
   function renderSection(section, elId, readonly){
     const el = document.getElementById(elId);
     const items = visibleItems(dayData.items, periodicHidden).filter(i=>i.section===section);
@@ -763,7 +805,7 @@
         : `<div class="simple-check ${item.done?'done':''}">${item.done?ic("check"):''}</div>`;
       return `
       <div class="simple-row ${item.done?'done':''} ${readonly?'readonly':''}" data-id="${item.id}">
-        <div class="simple-text"><div class="st-title">${escapeHtml(t.title)}</div>${t.sub ? `<div class="st-sub">${escapeHtml(t.sub)}</div>` : ""}</div>
+        <div class="simple-text"><div class="st-title">${escapeHtml(t.title)}</div>${t.sub ? `<div class="st-sub">${escapeHtml(t.sub)}</div>` : ""}${overdueTag(item)}</div>
         ${mark}
         ${role==="padres" ? `<button type="button" class="row-del" data-id="${item.id}" aria-label="Borrar">${ic("x")}</button>` : ""}
       </div>`;
@@ -1333,7 +1375,7 @@
               { id:"b2", name:"Bono 2", amount:"", given:legacyBonus2Given, note:"" } ]
           : [ { id:"b1", name:"Bono 1", amount:"", given:false, note:"" },
               { id:"b2", name:"Bono 2", amount:"", given:false, note:"" } ],
-        schedule: { start:"08:00", end:"16:00", days:"" }
+        schedule: { start:"08:00", end:"16:00", workdays:[1,2,3,4,5] }
       };
     }
     return benefits[key];
@@ -1363,7 +1405,17 @@
     const s = b.schedule;
     const t = v => fmtTime12(v).replace(/(am|pm)$/, " $1") || "—";
     document.getElementById("scheduleText").textContent =
-      `Horario: ${t(s.start)} – ${t(s.end)}${s.days ? " · "+s.days : ""}`;
+      `Horario: ${t(s.start)} – ${t(s.end)} · ${workdaysLabel(workdays())}`;
+  }
+  function workdaysLabel(w){
+    const order = [1,2,3,4,5,6,0];
+    const pos = w.map(x=> order.indexOf(x)).sort((a,b)=> a-b);
+    if(pos.length === 7) return "Todos los días";
+    const name = i => DOW_NAMES[order[i]];
+    const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+    if(pos.length >= 3 && pos[pos.length-1] - pos[0] === pos.length-1) return cap(name(pos[0])) + " a " + name(pos[pos.length-1]);
+    const list = pos.map(name);
+    return cap(list.length > 1 ? list.slice(0,-1).join(", ") + " y " + list[list.length-1] : list[0]);
   }
   function bonusRowHtml(x){
     return `
@@ -1385,7 +1437,9 @@
     document.getElementById("bfBonuses").innerHTML = b.bonuses.map(bonusRowHtml).join("");
     document.getElementById("bfStart").value = b.schedule.start || "";
     document.getElementById("bfEnd").value = b.schedule.end || "";
-    document.getElementById("bfDays").value = b.schedule.days || "";
+    const work = workdays();
+    document.querySelectorAll("#bfWorkdays .pill-opt").forEach(btn=>
+      btn.classList.toggle("active", work.includes(Number(btn.getAttribute("data-dow")))));
     openOverlay(document.getElementById("benefitsFormBg"));
   }
   document.getElementById("editBenefitsBtn").addEventListener("click", openBenefitsForm);
@@ -1394,6 +1448,13 @@
   document.getElementById("bfBonuses").addEventListener("click", (e)=>{
     const del = e.target.closest(".bf-del");
     if(del) del.closest(".bf-bonus").remove();
+  });
+  document.querySelectorAll("#bfWorkdays .pill-opt").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      // keep at least one work day selected
+      if(btn.classList.contains("active") && document.querySelectorAll("#bfWorkdays .pill-opt.active").length === 1) return;
+      btn.classList.toggle("active");
+    });
   });
   document.getElementById("bfAddBonus").addEventListener("click", ()=>{
     const wrap = document.getElementById("bfBonuses");
@@ -1412,11 +1473,12 @@
     b.schedule = {
       start: document.getElementById("bfStart").value,
       end: document.getElementById("bfEnd").value,
-      days: document.getElementById("bfDays").value.trim()
+      workdays: [...document.querySelectorAll("#bfWorkdays .pill-opt.active")].map(btn=> Number(btn.getAttribute("data-dow")))
     };
     renderBenefits();
     requestCloseOverlay();
     await saveBenefits();
+    await refreshTaskSchedule();
   });
 
   function renderLibreCard(l){
@@ -1720,7 +1782,8 @@
       btn.addEventListener("click", async ()=>{
         profiles.activeId = btn.getAttribute("data-id");
         await setJSON(PROFILES_KEY, profiles);
-        renderLibres(); renderInicio();
+        renderLibres();
+        await refreshTaskSchedule();
       });
     });
     el.querySelectorAll(".prof-del").forEach(btn=>{

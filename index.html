@@ -375,7 +375,15 @@
         <div class="field"><label>Hora de entrada</label><input type="time" id="bfStart"></div>
         <div class="field"><label>Hora de salida</label><input type="time" id="bfEnd"></div>
       </div>
-      <div class="field"><label>Días (opcional)</label><input type="text" id="bfDays" placeholder="Ej. Lunes a viernes"></div>
+      <div class="field"><label>Días de trabajo</label><div class="pill-row day-pills" id="bfWorkdays">
+        <button type="button" class="pill-opt day-opt" data-dow="1">Lun</button>
+        <button type="button" class="pill-opt day-opt" data-dow="2">Mar</button>
+        <button type="button" class="pill-opt day-opt" data-dow="3">Mié</button>
+        <button type="button" class="pill-opt day-opt" data-dow="4">Jue</button>
+        <button type="button" class="pill-opt day-opt" data-dow="5">Vie</button>
+        <button type="button" class="pill-opt day-opt" data-dow="6">Sáb</button>
+        <button type="button" class="pill-opt day-opt" data-dow="0">Dom</button>
+      </div></div>
       <button class="submit-btn" id="saveBenefitsBtn">Guardar</button>
     </div>
   </div>

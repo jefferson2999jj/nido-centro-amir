@@ -391,3 +391,6 @@ body.kb-open .pin-modal-bg{ align-items:flex-start; padding-top:max(12px, env(sa
 .bf-note:focus{ outline:none; border-color:var(--green); }
 .bf-del{ border:0; background:var(--card); color:var(--red); border-radius:12px; min-width:44px; min-height:44px; font-size:16px; font-weight:800; cursor:pointer; }
 #bfAddBonus{ margin:0 0 14px; }
+.day-pills{ gap:5px; flex-wrap:nowrap; }
+.day-opt{ flex:1; min-width:0; padding:0; font-size:13px; }
+.due-tag{ display:inline-block; margin-top:4px; background:var(--sand); color:var(--sand-ink); font-size:12px; font-weight:800; padding:3px 8px; border-radius:8px; }

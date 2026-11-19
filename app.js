@@ -310,7 +310,11 @@
     cal:'<path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 10h18M8 3v4M16 3v4"/>',
     recetas:'<path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 0-3 3-3 6s1 4 3 4v8"/>',
     libres:'<path d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>',
-    bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>'
+    bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+    next:'<path d="M9 5l7 7-7 7"/>',
+    star:'<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"/>',
+    gift:'<rect x="4" y="11" width="16" height="10" rx="1"/><rect x="3" y="7" width="18" height="4" rx="1"/><path d="M12 7v14M12 7C10.5 4 7 3.5 7 5.5S9.5 7 12 7zM12 7c1.5-3 5-3.5 5-1.5S14.5 7 12 7z"/>',
+    photo:'<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/>'
   };
   function ic(name){ return `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`; }
   // "Lavado de ropa (mínimo 1x por semana)" -> title "Lavado de ropa", sub "Mínimo 1x por semana"
@@ -452,7 +456,7 @@
     const testKey = "amir:_selftest";
     const ok = await setJSON(testKey, {t:Date.now()}, true);
     if(!ok){
-      updateDiag({result:"❌ Falló", detail:"No se pudo guardar en este teléfono. Usa el respaldo manual mientras tanto."});
+      updateDiag({result:"Falló", detail:"No se pudo guardar en este teléfono. Usa el respaldo manual mientras tanto."});
       showError(true, "El guardado automático no está disponible ahora mismo. La app sigue funcionando, pero usa \"Compartir o copiar respaldo\" en Inicio antes de cerrarla.");
       return false;
     }
@@ -461,9 +465,9 @@
     }catch(e){ /* offline is ok; local already saved */ }
     const st = window.storage.status ? window.storage.status() : {};
     if(st.cloudOk){
-      updateDiag({result:"✅ Nube conectada", detail:"Lo que marque la niñera aparece en el teléfono de los padres, y al revés. Última sync "+nowHHMM()+"."});
+      updateDiag({result:"Nube conectada", detail:"Lo que marque la niñera aparece en el teléfono de los padres, y al revés. Última sync "+nowHHMM()+"."});
     } else {
-      updateDiag({result:"✅ Guardado en este teléfono", detail:"No hay nube ahora. Al volver internet se sincroniza solo."});
+      updateDiag({result:"Guardado en este teléfono", detail:"No hay nube ahora. Al volver internet se sincroniza solo."});
     }
     return true;
   }
@@ -498,9 +502,9 @@
   // ---------- ROLE TOGGLE (synced across tabs) ----------
   function setRole(r){
     role = r;
-    [["roleNinera","rolePadres"],["roleNineraH","rolePadresH"]].forEach(pair=>{
-      document.getElementById(pair[0]).classList.toggle("active", r==="niñera");
-      document.getElementById(pair[1]).classList.toggle("active", r==="padres");
+    document.querySelectorAll(".role-toggle").forEach(t=>{
+      t.children[0].classList.toggle("active", r==="niñera");
+      t.children[1].classList.toggle("active", r==="padres");
     });
     updatePadresOnlyUI();
     renderChecklist();
@@ -522,16 +526,17 @@
     const editBenefits = document.getElementById("editBenefitsBtn");
     if(editBenefits) editBenefits.hidden = !padres;
   }
-  document.getElementById("roleNinera").addEventListener("click", ()=> setRole("niñera"));
-  document.getElementById("rolePadres").addEventListener("click", ()=> requestPadresAccess());
-  document.getElementById("roleNineraH").addEventListener("click", ()=> setRole("niñera"));
-  document.getElementById("rolePadresH").addEventListener("click", ()=> requestPadresAccess());
+  document.querySelectorAll(".role-toggle").forEach(t=>{
+    t.children[0].addEventListener("click", ()=> setRole("niñera"));
+    t.children[1].addEventListener("click", ()=> requestPadresAccess());
+  });
 
   // ---------- PIN protection for Padres view ----------
   const PADRES_PIN = "4270";
   function overlayEls(){
     return [
       document.getElementById("pinModalBg"),
+      document.getElementById("docFormBg"),
       document.getElementById("eventFormBg"),
       document.getElementById("recFormBg"),
       document.getElementById("libreFormBg"),
@@ -596,9 +601,51 @@
     document.getElementById(closeBtnId).addEventListener("click", ()=> requestCloseOverlay());
     bg.addEventListener("click", (e)=>{ if(e.target === bg) requestCloseOverlay(); });
   }
+  wireModalToggle("toggleDocForm","docFormBg","closeDocForm");
   wireModalToggle("toggleEventForm","eventFormBg","closeEventForm");
   wireModalToggle("toggleRecForm","recFormBg","closeRecForm");
   wireModalToggle("toggleLibreForm","libreFormBg","closeLibreForm");
+  // swipe down on a form's header to close it
+  document.querySelectorAll(".form-modal-head").forEach(head=>{
+    const modal = head.parentElement;
+    let startY = null;
+    head.addEventListener("touchstart", (e)=>{ startY = e.target.closest("button") ? null : e.touches[0].clientY; }, {passive:true});
+    head.addEventListener("touchmove", (e)=>{
+      if(startY === null) return;
+      const dy = e.touches[0].clientY - startY;
+      modal.style.transform = dy > 0 ? `translateY(${dy}px)` : "";
+    }, {passive:true});
+    head.addEventListener("touchend", (e)=>{
+      if(startY === null) return;
+      const dy = e.changedTouches[0].clientY - startY;
+      startY = null;
+      modal.style.transform = "";
+      if(dy > 90) requestCloseOverlay();
+    });
+  });
+
+  // ---------- toast ("Guardado" / "… eliminado · Deshacer") ----------
+  let toastTimer = null, toastUndo = null;
+  function showToast(text, undo){
+    document.getElementById("toastText").textContent = text;
+    document.getElementById("toastUndo").hidden = !undo;
+    toastUndo = undo || null;
+    document.getElementById("toast").hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>{ document.getElementById("toast").hidden = true; toastUndo = null; }, undo ? 6000 : 2000);
+  }
+  document.getElementById("toastUndo").addEventListener("click", async ()=>{
+    const undo = toastUndo;
+    document.getElementById("toast").hidden = true;
+    toastUndo = null;
+    if(undo) await undo();
+  });
+  // count badge next to a section heading; hidden when zero
+  function setCount(id, n){
+    const el = document.getElementById(id);
+    el.textContent = n;
+    el.hidden = !n;
+  }
 
   // ---------- DAY NAV (Hoy) ----------
   document.getElementById("prevDay").addEventListener("click", ()=>{ const d=new Date(currentDate); d.setDate(d.getDate()-1); goToDay(d); });
@@ -770,10 +817,10 @@
       listEl.innerHTML = days.map(d => `
         <div class="imp-day-item" data-iso="${d.iso}">
           <div>
-            <div class="imp-date">⭐ ${fmtDateShort(d.iso)}</div>
+            <div class="imp-date">${fmtDateShort(d.iso)}</div>
             ${d.preview ? `<div class="imp-preview">${escapeHtml(d.preview)}</div>` : ""}
           </div>
-          <span style="color:var(--ink-soft);">›</span>
+          <span class="row-chev">${ic("next")}</span>
         </div>`).join("");
       listEl.querySelectorAll(".imp-day-item").forEach(item=>{
         item.addEventListener("click", ()=>{
@@ -880,7 +927,7 @@
       <div class="tpl-item">
         <span class="tpl-sec">${t.section==='actividades'?'Activ.':'Hogar'}</span>
         <span style="flex:1;">${escapeHtml(t.text)}</span>
-        <button class="row-del" data-id="${t.id}">✕</button>
+        <button class="row-del" data-id="${t.id}" aria-label="Borrar">${ic("x")}</button>
       </div>`).join("");
     el.querySelectorAll(".row-del").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
@@ -904,6 +951,7 @@
 
   // ---------- DOCS ----------
   let pendingDocImages = [];
+  let expandedDocs = new Set();
   function compressImageFile(file){
     return new Promise((resolve, reject)=>{
       const url = URL.createObjectURL(file);
@@ -933,7 +981,7 @@
     el.innerHTML = pendingDocImages.map((src, i)=>`
       <div class="doc-photo-wrap">
         <img src="${src}" alt="Vista previa">
-        <button type="button" class="doc-photo-del" data-i="${i}">✕</button>
+        <button type="button" class="doc-photo-del" data-i="${i}" aria-label="Quitar foto">${ic("x")}</button>
       </div>`).join("");
     el.querySelectorAll(".doc-photo-del").forEach(btn=>{
       btn.addEventListener("click", ()=>{
@@ -960,7 +1008,12 @@
   }
   const imgLightbox = document.getElementById("imgLightbox");
   if(imgLightbox){
-    imgLightbox.addEventListener("click", (e)=>{ if(e.target.id==="imgLightbox" || e.target.id==="imgLightboxClose") requestCloseOverlay(); });
+    imgLightbox.addEventListener("click", (e)=>{
+      if(e.target.id!=="imgLightbox" && !e.target.closest("#imgLightboxClose")) return;
+      // a photo opened from the new-document form: close the photo, keep the form
+      if(!document.getElementById("docFormBg").classList.contains("hidden")) closeLightbox();
+      else requestCloseOverlay();
+    });
   }
   const docImagesInput = document.getElementById("docImages");
   if(docImagesInput){
@@ -986,25 +1039,49 @@
   function renderDocs(){
     const el = document.getElementById("docsList");
     const filtered = docs.filter(d => docFilter==="Todos" || (d.category||"Otro")===docFilter);
-    if(!filtered.length){ el.innerHTML = `<div class="empty"><div class="e-ic">📄</div><p>Aún no hay documentos en esta categoría.</p></div>`; return; }
+    document.getElementById("docsHeading").textContent = docFilter;
+    setCount("docsCount", filtered.length);
+    if(!filtered.length){ el.innerHTML = `<div class="empty"><p>Aún no hay documentos en esta categoría.</p></div>`; return; }
     const sorted = [...filtered].sort((a,b)=> (b.updatedAt||"").localeCompare(a.updatedAt||""));
-    el.innerHTML = sorted.map(d => `
-      <div class="item-card">
-        <div class="item-head">
-          <div class="item-title">${escapeHtml(d.title)}</div>
-          <button class="item-del" data-id="${d.id}">✕</button>
+    el.innerHTML = sorted.map(d => {
+      const isOpen = expandedDocs.has(d.id);
+      const photos = Array.isArray(d.images) ? d.images.length : 0;
+      return `
+      <div class="row-box">
+        <div class="simple-row doc-head" data-id="${d.id}">
+          <span class="row-ic g">${ic("docs")}</span>
+          <div class="simple-text">
+            <div class="st-title">${escapeHtml(d.title)}</div>
+            <div class="st-sub">${escapeHtml(d.category||"Otro")}${photos ? ` · ${photos} ${photos===1?"foto":"fotos"}` : ""}</div>
+          </div>
+          <span class="row-chev ${isOpen?'open':''}">${ic("next")}</span>
         </div>
-        <div class="item-tag">${escapeHtml(d.category||"Otro")}</div>
-        ${d.body ? `<div class="item-body">${escapeHtml(d.body)}</div>` : ""}
-        ${Array.isArray(d.images) && d.images.length ? `<div class="doc-photos">${d.images.map((src,i)=>`
-          <div class="doc-photo-wrap">
-            <img src="${src}" alt="${escapeHtml(d.title)}" data-id="${d.id}" data-i="${i}">
-            ${role==="padres" ? `<button type="button" class="doc-photo-del" data-id="${d.id}" data-i="${i}">✕</button>` : ""}
-          </div>`).join("")}</div>` : ""}
-        <label class="toggle-btn doc-add-photo" style="margin:10px 0 0;">📷 Agregar foto<input type="file" accept="image/*" data-id="${d.id}" class="file-hidden" tabindex="-1"></label>
-      </div>`).join("");
-    el.querySelectorAll(".item-del").forEach(btn=>{
-      btn.addEventListener("click", async ()=>{ docs = docs.filter(d=>d.id!==btn.getAttribute("data-id")); await setJSON(DOCS_KEY, docs); renderDocs(); renderInicio(); });
+        <div class="row-detail" style="display:${isOpen?'block':'none'};">
+          ${d.body ? `<div class="item-body">${escapeHtml(d.body)}</div>` : ""}
+          ${photos ? `<div class="doc-photos">${d.images.map((src,i)=>`
+            <div class="doc-photo-wrap">
+              <img src="${src}" alt="${escapeHtml(d.title)}" data-id="${d.id}" data-i="${i}">
+              ${role==="padres" ? `<button type="button" class="doc-photo-del" data-id="${d.id}" data-i="${i}" aria-label="Quitar foto">${ic("x")}</button>` : ""}
+            </div>`).join("")}</div>` : ""}
+          <label class="toggle-btn doc-add-photo" style="margin:10px 0 0;">${ic("photo")}Agregar foto<input type="file" accept="image/*" data-id="${d.id}" class="file-hidden" tabindex="-1"></label>
+          <div class="edit-del-row"><button type="button" class="lib-del doc-del" data-id="${d.id}">Eliminar</button></div>
+        </div>
+      </div>`;
+    }).join("");
+    el.querySelectorAll(".doc-head").forEach(head=>{
+      head.addEventListener("click", ()=>{
+        const id = head.getAttribute("data-id");
+        if(expandedDocs.has(id)) expandedDocs.delete(id); else expandedDocs.add(id);
+        renderDocs();
+      });
+    });
+    el.querySelectorAll(".doc-del").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const removed = docs.find(d=>d.id===btn.getAttribute("data-id"));
+        docs = docs.filter(d=>d!==removed);
+        await setJSON(DOCS_KEY, docs); renderDocs(); renderInicio();
+        showToast("Documento eliminado", async ()=>{ docs.push(removed); await setJSON(DOCS_KEY, docs); renderDocs(); });
+      });
     });
     el.querySelectorAll(".doc-photos img").forEach(img=>{
       img.addEventListener("click", ()=> openLightbox(img.src));
@@ -1063,12 +1140,15 @@
     document.getElementById("docTitle").value=""; document.getElementById("docBody").value="";
     pendingDocImages = [];
     renderPendingDocImages();
+    requestCloseOverlay();
     renderDocs();
+    showToast("Guardado");
   });
 
   // ---------- CALENDARIO ----------
   function renderCalendar(){
-    document.getElementById("calTitle").textContent = new Intl.DateTimeFormat("es-ES",{month:"long", year:"numeric"}).format(calViewMonth);
+    const monthTitle = new Intl.DateTimeFormat("es-ES",{month:"long", year:"numeric"}).format(calViewMonth);
+    document.getElementById("calTitle").textContent = monthTitle.charAt(0).toUpperCase() + monthTitle.slice(1);
     const grid = document.getElementById("calGrid");
     const dows = ["D","L","M","M","J","V","S"];
     let html = dows.map(d=>`<div class="cal-dow">${d}</div>`).join("");
@@ -1102,17 +1182,24 @@
     const iso = isoLocal(calSelected);
     const el = document.getElementById("dayDetailList");
     const dayEvents = events.filter(e=>e.date===iso).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+    setCount("dayDetailCount", dayEvents.length);
     if(!dayEvents.length){ el.innerHTML = `<div class="empty" style="padding:18px 4px;"><p>Nada programado este día.</p></div>`; return; }
     el.innerHTML = dayEvents.map(ev => `
-      <div class="item-card">
-        <div class="item-head">
-          <div><div class="item-title">${escapeHtml(ev.title)}</div>${ev.time?`<div class="item-meta">${fmtTime12(ev.time)}</div>`:""}</div>
-          <button class="item-del" data-id="${ev.id}">✕</button>
+      <div class="simple-row readonly">
+        ${ev.time ? `<span class="row-time">${fmtTime12(ev.time).replace(/(am|pm)$/, " $1")}</span>` : `<span class="row-ic b">${ic("cal")}</span>`}
+        <div class="simple-text">
+          <div class="st-title">${escapeHtml(ev.title)}</div>
+          ${ev.notes?`<div class="st-sub" style="white-space:pre-wrap;">${escapeHtml(ev.notes)}</div>`:""}
         </div>
-        ${ev.notes?`<div class="item-body">${escapeHtml(ev.notes)}</div>`:""}
+        <button type="button" class="row-del" data-id="${ev.id}" aria-label="Eliminar">${ic("x")}</button>
       </div>`).join("");
-    el.querySelectorAll(".item-del").forEach(btn=>{
-      btn.addEventListener("click", async ()=>{ events = events.filter(e=>e.id!==btn.getAttribute("data-id")); await setJSON(EVENTS_KEY, events); renderCalendar(); renderDayDetail(); renderInicio(); });
+    el.querySelectorAll(".row-del").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const removed = events.find(e=>e.id===btn.getAttribute("data-id"));
+        events = events.filter(e=>e!==removed);
+        await setJSON(EVENTS_KEY, events); renderCalendar(); renderDayDetail(); renderInicio();
+        showToast("Evento eliminado", async ()=>{ events.push(removed); await setJSON(EVENTS_KEY, events); renderCalendar(); renderDayDetail(); renderInicio(); });
+      });
     });
   }
   document.getElementById("addEventBtn").addEventListener("click", async ()=>{
@@ -1128,6 +1215,7 @@
     requestCloseOverlay();
     const [y,m,dd]=date.split("-").map(Number); calSelected=new Date(y,m-1,dd);
     renderCalendar(); renderDayDetail(); renderInicio();
+    showToast("Guardado");
   });
 
   // ---------- RECETAS ----------
@@ -1141,45 +1229,46 @@
     });
   }
   const MAX_EDITS = 3;
-  const RATING_EMOJI = { love:"😍", ok:"😐", dislike:"😖" };
+  const RATING_TAG = { love:"ok", ok:"", dislike:"no" }; // colour of the rating tag
   const RATING_LABEL = { love:"Le encantó", ok:"Más o menos", dislike:"No le gustó" };
   let expandedRecipes = new Set();
   function renderRecetas(){
     const el = document.getElementById("recetasList");
     const filtered = recipes.filter(r => recFilter==="Todos" || (r.category||"Res")===recFilter);
-    if(!filtered.length){ el.innerHTML = `<div class="empty"><div class="e-ic">🍽️</div><p>Aún no hay recetas guardadas en esta categoría.</p></div>`; return; }
+    document.getElementById("recHeading").textContent = recFilter;
+    setCount("recCount", filtered.length);
+    if(!filtered.length){ el.innerHTML = `<div class="empty"><p>Aún no hay recetas guardadas en esta categoría.</p></div>`; return; }
     const sorted = [...filtered].sort((a,b)=> (b.updatedAt||"").localeCompare(a.updatedAt||""));
     el.innerHTML = sorted.map(r => {
       const isOpen = expandedRecipes.has(r.id);
       const editCount = r.editCount || 0;
       const maxedOut = editCount >= MAX_EDITS;
       return `
-      <div class="item-card rec-card" data-id="${r.id}">
-        <div class="item-head rec-head" data-id="${r.id}" style="cursor:pointer;">
-          <div>
-            <div class="item-title">${escapeHtml(r.name)}</div>
-            <div class="item-tag">${escapeHtml(r.category||"Res")}</div>
-            ${r.ageRec?`<div class="item-meta" style="margin-top:4px;">${escapeHtml(r.ageRec)}</div>`:""}
+      <div class="row-box">
+        <div class="simple-row rec-head" data-id="${r.id}">
+          <div class="simple-text">
+            <div class="st-title">${escapeHtml(r.name)}</div>
+            <div class="st-sub">${escapeHtml(r.category||"Res")}${r.ageRec ? " · "+escapeHtml(r.ageRec) : ""}</div>
+            ${r.rating ? `<span class="due-tag ${RATING_TAG[r.rating]}">${RATING_LABEL[r.rating]}</span>` : ""}
             ${editCount>0 ? `<div class="edit-count-badge">Editada ${editCount}/${MAX_EDITS}</div>` : ""}
           </div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            ${r.rating ? `<span class="rating-face" title="Calificación">${RATING_EMOJI[r.rating]}</span>` : ""}
-            <span class="rec-chevron" style="color:var(--ink-soft); font-size:13px; transform:rotate(${isOpen?90:0}deg); transition:transform 0.15s ease; display:inline-block;">›</span>
-            <button class="item-edit ${maxedOut?'maxed':''}" data-id="${r.id}" title="${maxedOut?'Límite de ediciones alcanzado':'Editar'}">✏️</button>
-            ${role==="padres" ? `<button class="item-del" data-id="${r.id}">✕</button>` : ""}
-          </div>
+          <span class="row-chev ${isOpen?'open':''}">${ic("next")}</span>
         </div>
-        <div class="rec-details" style="display:${isOpen?'block':'none'};">
+        <div class="row-detail rec-details" style="display:${isOpen?'block':'none'};">
           ${r.ingredients?`<div class="item-meta" style="margin-top:8px;">INGREDIENTES</div><div class="item-body">${escapeHtml(r.ingredients)}</div>`:""}
           ${r.steps?`<div class="item-meta" style="margin-top:8px;">PREPARACIÓN</div><div class="item-body">${escapeHtml(r.steps)}</div>`:""}
           ${r.notes?`<div class="item-meta" style="margin-top:8px;">NOTAS</div><div class="item-body">${escapeHtml(r.notes)}</div>`:""}
-          <div class="item-meta" style="margin-top:10px;">¿QUÉ LE PARECIÓ A AMIR? 💙</div>
+          <div class="item-meta" style="margin-top:10px;">¿QUÉ LE PARECIÓ A AMIR?</div>
           <div class="rating-row" data-id="${r.id}">
-            ${Object.keys(RATING_EMOJI).map(key=>`
+            ${Object.keys(RATING_LABEL).map(key=>`
               <button type="button" class="rating-btn ${r.rating===key?'active':''}" data-id="${r.id}" data-rating="${key}">
-                <span class="rf">${RATING_EMOJI[key]}</span><span class="rl">${RATING_LABEL[key]}</span>
+                <span class="rl">${RATING_LABEL[key]}</span>
               </button>
             `).join("")}
+          </div>
+          <div class="edit-del-row">
+            <button type="button" class="lib-edit item-edit ${maxedOut?'maxed':''}" data-id="${r.id}" title="${maxedOut?'Límite de ediciones alcanzado':'Editar'}">Editar</button>
+            ${role==="padres" ? `<button type="button" class="lib-del item-del" data-id="${r.id}">Eliminar</button>` : ""}
           </div>
         </div>
       </div>`;
@@ -1195,8 +1284,7 @@
       });
     });
     el.querySelectorAll(".rec-head").forEach(head=>{
-      head.addEventListener("click", (e)=>{
-        if(e.target.closest(".item-del") || e.target.closest(".item-edit")) return;
+      head.addEventListener("click", ()=>{
         const id = head.getAttribute("data-id");
         if(expandedRecipes.has(id)) expandedRecipes.delete(id); else expandedRecipes.add(id);
         renderRecetas();
@@ -1205,8 +1293,10 @@
     el.querySelectorAll(".item-del").forEach(btn=>{
       btn.addEventListener("click", async (e)=>{
         e.stopPropagation();
-        recipes = recipes.filter(r=>r.id!==btn.getAttribute("data-id"));
+        const removed = recipes.find(r=>r.id===btn.getAttribute("data-id"));
+        recipes = recipes.filter(r=>r!==removed);
         await setJSON(RECIPES_KEY, recipes); renderRecetas();
+        showToast("Receta eliminada", async ()=>{ recipes.push(removed); await setJSON(RECIPES_KEY, recipes); renderRecetas(); });
       });
     });
     el.querySelectorAll(".item-edit").forEach(btn=>{
@@ -1279,6 +1369,7 @@
     resetRecipeForm();
     requestCloseOverlay();
     renderRecetas();
+    showToast("Guardado");
   });
 
   // ---------- LIBRES ----------
@@ -1354,7 +1445,7 @@
     const usedDays = aprobados.reduce((s,l)=> s+libreDayFraction(l), 0);
     const pendingDays = pendientes.reduce((s,l)=> s+libreDayFraction(l), 0);
     const available = Math.max(0, ANNUAL_PAID_DAYS - usedDays);
-    document.getElementById("balanceNum").textContent = `${Math.round(available*10)/10}/${ANNUAL_PAID_DAYS}`;
+    document.getElementById("balanceNum").textContent = `${Math.round(available*10)/10} de ${ANNUAL_PAID_DAYS}`;
     document.getElementById("balanceFill").style.width = `${Math.min(100,(usedDays/ANNUAL_PAID_DAYS)*100)}%`;
 
     const holidaysThisYear = libres.filter(l=> (l.category==="holiday" || l.category==="dia_extra") && inThisYear(l));
@@ -1427,7 +1518,7 @@
         <div class="bf-bonus-bottom">
           <label class="bf-given"><input type="checkbox" class="bf-given-cb"${x.given ? " checked" : ""}> Entregado</label>
           <input type="text" class="bf-note" placeholder="Cuándo" value="${escapeHtml(x.note)}">
-          <button type="button" class="lib-del bf-del" aria-label="Quitar bono">✕</button>
+          <button type="button" class="lib-del bf-del" aria-label="Quitar bono">${ic("x")}</button>
         </div>
       </div>`;
   }
@@ -1481,41 +1572,42 @@
     await refreshTaskSchedule();
   });
 
+  function libreDateLine(l){
+    if(l.type === "parcial") return fmtDateShort(l.date);
+    return fmtDateShort(l.startDate) + (l.endDate && l.endDate!==l.startDate ? " – "+fmtDateShort(l.endDate) : "");
+  }
   function renderLibreCard(l){
-    let dateLine, timeLine = "";
+    let timeLine = "";
     if(l.type === "parcial"){
-      dateLine = fmtDateShort(l.date);
       const parts = [];
       if(l.horaEntrada) parts.push("Entrada "+fmtTime12(l.horaEntrada));
       if(l.horaSalida) parts.push("Salida "+fmtTime12(l.horaSalida));
       timeLine = parts.join(" · ");
-    } else {
-      dateLine = fmtDateShort(l.startDate) + (l.endDate && l.endDate!==l.startDate ? " – "+fmtDateShort(l.endDate) : "");
     }
-    let tag, tagClass;
-    if(l.category === "holiday"){ tag = "Holidays"; tagClass = "tag-holiday"; }
-    else if(l.category === "dia_extra"){ tag = "Días Extras"; tagClass = "tag-extra"; }
-    else { tag = l.type==="parcial" ? "Parcial" : "Completo"; tagClass = "tag-vacacion"; }
+    let tag;
+    if(l.category === "holiday") tag = "Holidays";
+    else if(l.category === "dia_extra") tag = "Días Extras";
+    else tag = l.type==="parcial" ? "Parcial" : "Completo";
     return `
-      <div class="item-card">
-        <div class="item-head">
-          <div>
-            <div class="item-title">${dateLine}</div>
-            <div class="item-tag ${tagClass}">${tag}</div>
-            ${timeLine ? `<div class="item-meta" style="margin-top:6px;">${escapeHtml(timeLine)}</div>` : ""}
-            ${l.reason?`<div class="item-meta" style="margin-top:4px;">${escapeHtml(l.reason)}</div>`:""}
+      <div class="row-box">
+        <div class="simple-row readonly">
+          <div class="simple-text">
+            <div class="st-title">${libreDateLine(l)}</div>
+            <div class="st-sub">${[tag, escapeHtml(timeLine), escapeHtml(l.reason)].filter(Boolean).join(" · ")}</div>
           </div>
           <span class="status-pill ${l.status}">${l.status}</span>
         </div>
-        ${role==="padres" && l.status==="pendiente" ? `
-          <div class="approve-row" data-id="${l.id}">
-            <button class="apr" data-id="${l.id}" data-act="aprobado">Aprobar</button>
-            <button class="rej" data-id="${l.id}" data-act="rechazado">Rechazar</button>
-          </div>` : ""}
         ${role==="padres" ? `
-          <div class="edit-del-row">
-            <button class="lib-edit" data-id="${l.id}">✏️ Editar</button>
-            <button class="lib-del" data-id="${l.id}">✕ Eliminar</button>
+          <div class="row-detail">
+            ${l.status==="pendiente" ? `
+            <div class="approve-row" data-id="${l.id}">
+              <button class="apr" data-id="${l.id}" data-act="aprobado">Aprobar</button>
+              <button class="rej" data-id="${l.id}" data-act="rechazado">Rechazar</button>
+            </div>` : ""}
+            <div class="edit-del-row">
+              <button class="lib-edit" data-id="${l.id}">Editar</button>
+              <button class="lib-del" data-id="${l.id}">Eliminar</button>
+            </div>
           </div>` : ""}
       </div>`;
   }
@@ -1529,9 +1621,9 @@
     const libreDate = l => l.type === "parcial" ? l.date : l.startDate;
     const el = document.getElementById("libresList");
     const groups = [
-      { key:"vacacion", title:"🏖️ Tiempo Libre", cls:"grp-vacacion", empty:"Aún no hay solicitudes de Tiempo Libre." },
-      { key:"holiday",  title:"🎉 Holidays",      cls:"grp-holiday",  empty:"Aún no hay Holidays registrados." },
-      { key:"dia_extra",title:"🎁 Días Extras",   cls:"grp-extra",    empty:"Aún no hay Días Extras registrados." },
+      { key:"vacacion", title:"Tiempo Libre", icon:"libres", cls:"grp-vacacion", empty:"Aún no hay solicitudes de Tiempo Libre." },
+      { key:"holiday",  title:"Holidays",     icon:"star",   cls:"grp-holiday",  empty:"Aún no hay Holidays registrados." },
+      { key:"dia_extra",title:"Días Extras",  icon:"gift",   cls:"grp-extra",    empty:"Aún no hay Días Extras registrados." },
     ];
 
     const byYear = {};
@@ -1554,14 +1646,16 @@
         const body = items.length
           ? items.map(renderLibreCard).join("")
           : `<div class="empty" style="padding:16px 4px;"><p>${g.empty}</p></div>`;
-        return `<div class="libre-group ${g.cls}"><div class="sec-heading libre-group-heading">${g.title}</div>${body}</div>`;
+        return `<div class="libre-group ${g.cls}"><div class="libre-group-heading">${ic(g.icon)}${g.title}</div>${body}</div>`;
       }).join("");
       return `
-        <div class="year-toggle" data-year="${y}">
-          <span class="yt-title">Solicitudes ${y}</span>
-          <span class="yt-chevron ${isOpen?'open':''}">›</span>
+        <div class="card task-card">
+          <div class="sec-head year-toggle" data-year="${y}">
+            <div class="sec-heading">Solicitudes ${y}</div>
+            <span class="row-chev ${isOpen?'open':''}">${ic("next")}</span>
+          </div>
+          <div class="year-body" data-year-body="${y}" style="display:${isOpen?'block':'none'};">${groupsHtml}</div>
         </div>
-        <div class="year-body" data-year-body="${y}" style="display:${isOpen?'block':'none'};">${groupsHtml}</div>
       `;
     }).join("");
 
@@ -1585,9 +1679,11 @@
     });
     el.querySelectorAll(".lib-del").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
-        libres = libres.filter(l=>l.id !== btn.getAttribute("data-id"));
+        const removed = libres.find(l=>l.id === btn.getAttribute("data-id"));
+        libres = libres.filter(l=>l !== removed);
         await setJSON(LIBRES_KEY, libres);
         renderLibres(); renderInicio();
+        showToast("Solicitud eliminada", async ()=>{ libres.push(removed); await setJSON(LIBRES_KEY, libres); renderLibres(); renderInicio(); });
       });
     });
   }
@@ -1678,28 +1774,30 @@
     resetLibreForm();
     requestCloseOverlay();
     renderLibres(); renderInicio();
+    showToast("Guardado");
   });
 
   // ---------- INICIO / BIENVENIDA ----------
   async function renderInicio(){
     updatePadresOnlyUI();
     const nanny = activeProfile();
-    document.getElementById("greetText").textContent = role==="niñera" ? (nanny ? `¡Bienvenida, ${nanny.name}! 👋` : "¡Bienvenida! 👋") : "¡Bienvenidos! 👋";
+    document.getElementById("greetText").textContent = role==="niñera" ? (nanny ? `Hola, ${nanny.name}` : "Hola") : "Bienvenidos";
     document.getElementById("remHeading").textContent = `Recordatorio para ${nannyLabel()}`;
     renderProfiles();
     document.getElementById("greetDate").textContent = fmtDateLong(today);
 
     const remindersEl = document.getElementById("reminders");
-    let cards = "";
+    const cards = [];
+    const row = (cls, icon, title, sub, extra) => `<div class="simple-row readonly"><span class="row-ic ${cls}">${ic(icon)}</span><div class="simple-text"><div class="st-title">${title}</div><div class="st-sub">${sub}</div></div>${extra||""}</div>`;
 
     if(isCookingDay(today)){
-      cards += `<div class="reminder-card cook"><span class="ric">${ic("recetas")}</span><div class="rc-body"><b>Hoy toca cocinar</b><span class="sub">Prepara 2 recetas para Amir (lunes y jueves)</span></div></div>`;
+      cards.push(row("g", "recetas", "Hoy toca cocinar", "Prepara 2 recetas para Amir (lunes y jueves)"));
     }
 
     const todayIso = isoLocal(today);
     const todayEvents = events.filter(e=>e.date===todayIso).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
     todayEvents.forEach(ev=>{
-      cards += `<div class="reminder-card event"><span class="ric">${ic("cal")}</span><div class="rc-body"><b>${escapeHtml(ev.title)}</b><span class="sub">Hoy${ev.time?" a las "+fmtTime12(ev.time):""}</span></div></div>`;
+      cards.push(row("b", "cal", escapeHtml(ev.title), `Hoy${ev.time?" a las "+fmtTime12(ev.time):""}`));
     });
 
     const in7 = new Date(today); in7.setDate(in7.getDate()+7);
@@ -1710,7 +1808,7 @@
       return ed > today && ed <= in7;
     }).sort((a,b)=> a.date.localeCompare(b.date)).slice(0,3);
     upcoming.forEach(ev=>{
-      cards += `<div class="reminder-card event"><span class="ric">${ic("cal")}</span><div class="rc-body"><b>${escapeHtml(ev.title)}</b><span class="sub">${fmtDateShort(ev.date)}${ev.time?" · "+fmtTime12(ev.time):""}</span></div></div>`;
+      cards.push(row("b", "cal", escapeHtml(ev.title), `${fmtDateShort(ev.date)}${ev.time?" · "+fmtTime12(ev.time):""}`));
     });
 
     const visibleManual = (reminders || []).filter(r=>{
@@ -1723,17 +1821,28 @@
     }).sort((a,b)=> (a.date||"").localeCompare(b.date||""));
     visibleManual.forEach(r=>{
       const when = r.date ? (r.date===todayIso ? "Hoy" : fmtDateShort(r.date)) : "Siempre visible";
-      cards += `<div class="reminder-card manual"><span class="ric">${ic("bell")}</span><div class="rc-body"><b>${escapeHtml(r.text)}</b><span class="sub">${when}</span></div>${role==="padres"?`<button type="button" class="item-del rem-del" data-id="${r.id}" aria-label="Borrar">${ic("x")}</button>`:""}</div>`;
+      cards.push(row("s", "bell", escapeHtml(r.text), when, role==="padres"?`<button type="button" class="row-del rem-del" data-id="${r.id}" aria-label="Borrar">${ic("x")}</button>`:""));
     });
+    setCount("remCount", cards.length);
 
-    if(!cards) cards = `<div class="empty" style="padding:14px 4px;"><p>No hay recordatorios por ahora. ¡Buen día! 🌤️</p></div>`;
-    remindersEl.innerHTML = cards;
+    // time-off requests waiting for an answer: one row that jumps to Tiempo Libre
+    const pendingLibres = libres.filter(l=>l.status==="pendiente" && isActiveProfileLibre(l));
+    const n = pendingLibres.length;
+    const pendingRow = n ? `<div class="simple-row warn" id="pendingLibresRow"><span class="row-ic">${ic("libres")}</span><div class="simple-text"><div class="st-title">${n} ${n===1 ? "solicitud" : "solicitudes"} de tiempo libre ${n===1 ? "pendiente" : "pendientes"}</div><div class="st-sub">${pendingLibres.map(libreDateLine).join(" · ")}</div></div><span class="row-chev">${ic("next")}</span></div>` : "";
+
+    remindersEl.innerHTML = (cards.join("") + pendingRow) || `<div class="empty" style="padding:14px 4px;"><p>No hay recordatorios por ahora. ¡Buen día!</p></div>`;
     remindersEl.querySelectorAll(".rem-del").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
-        reminders = reminders.filter(r=>r.id!==btn.getAttribute("data-id"));
+        const removed = reminders.find(r=>r.id===btn.getAttribute("data-id"));
+        reminders = reminders.filter(r=>r!==removed);
         await setJSON(REMINDERS_KEY, reminders);
         renderInicio();
+        showToast("Recordatorio eliminado", async ()=>{ reminders.push(removed); await setJSON(REMINDERS_KEY, reminders); renderInicio(); });
       });
+    });
+    if(n) document.getElementById("pendingLibresRow").addEventListener("click", ()=>{
+      document.querySelector('.nav-btn[data-tab="libres"]').click();
+      window.scrollTo(0, 0);
     });
 
     const todayDay = await getJSON(DAY_PREFIX + todayIso, null);
@@ -1741,14 +1850,6 @@
     const todayItems = todayDay && Array.isArray(todayDay.items) ? visibleItems(todayDay.items, todayHidden) : null;
     const totalTasks = todayItems ? todayItems.length : templateTasks.filter(t=>!todayHidden.has(t.id)).length;
     const doneTasks = todayItems ? todayItems.filter(i=>i.done).length : 0;
-    const pendingLibres = libres.filter(l=>l.status==="pendiente" && isActiveProfileLibre(l)).length;
-
-    document.getElementById("dashStats").innerHTML = `
-      <div class="stat-mini"><span class="smi">${ic("hoy")}</span><span class="smv">${doneTasks}/${totalTasks}</span><span class="smt">Checklist de hoy</span></div>
-      <div class="stat-mini"><span class="smi">${ic("docs")}</span><span class="smv">${docs.length}</span><span class="smt">Documentos</span></div>
-      <div class="stat-mini"><span class="smi">${ic("recetas")}</span><span class="smv">${recipes.length}</span><span class="smt">Recetas</span></div>
-      <div class="stat-mini ${pendingLibres ? "warn" : ""}"><span class="smi">${ic("libres")}</span><span class="smv">${pendingLibres}</span><span class="smt">Solicitudes pendientes</span></div>
-    `;
 
     const signed = !!(todayDay && todayDay.locked);
     const nextItem = (todayItems || templateTasks.filter(t=>!todayHidden.has(t.id))).find(i=>!i.done);
@@ -1774,7 +1875,7 @@
         <span style="flex:1;font-weight:700;">${escapeHtml(p.name)}${isActive ? " · activa" : ""}</span>
         <div class="edit-del-row" style="flex:0 0 100%;margin-top:4px;">
           ${isActive ? "" : `<button type="button" class="lib-edit prof-use" data-id="${p.id}">Usar este perfil</button>`}
-          <button type="button" class="lib-del prof-del" data-id="${p.id}">✕ Borrar perfil y su Tiempo Libre</button>
+          <button type="button" class="lib-del prof-del" data-id="${p.id}">Borrar perfil y su Tiempo Libre</button>
         </div>
       </div>`;
     }).join("") : `<div class="empty" style="padding:14px 4px;"><p>No hay perfiles todavía.</p></div>`;
@@ -1823,6 +1924,7 @@
     document.getElementById("remText").value = "";
     document.getElementById("remDate").value = "";
     renderInicio();
+    showToast("Guardado");
   });
 
   // ---------- INIT ----------
@@ -1997,7 +2099,7 @@
         }
       }
     }catch(e){
-      updateDiag({result:"⚠️ Sin nube", detail:"Guardado en este teléfono. Se sincroniza al volver internet."});
+      updateDiag({result:"Sin nube", detail:"Guardado en este teléfono. Se sincroniza al volver internet."});
     }
   }
 
@@ -2018,12 +2120,12 @@
       const st = window.storage.status ? window.storage.status() : {};
       if(readBack && readBack.v === marker){
         if(st.cloudOk){
-          updateDiag({result:"✅ Nube conectada", detail:"Padres y niñera comparten el mismo Nido. Última sync "+nowHHMM()+"."});
+          updateDiag({result:"Nube conectada", detail:"Padres y niñera comparten el mismo Nido. Última sync "+nowHHMM()+"."});
         } else {
-          updateDiag({result:"✅ Guardado en este teléfono", detail:"No hay nube ahora. Al volver internet se sincroniza solo."});
+          updateDiag({result:"Guardado en este teléfono", detail:"No hay nube ahora. Al volver internet se sincroniza solo."});
         }
       } else {
-        updateDiag({result:"⚠️ Guardó pero no pudo releer", detail:"Usa el respaldo manual si ves datos viejos."});
+        updateDiag({result:"Guardó pero no pudo releer", detail:"Usa el respaldo manual si ves datos viejos."});
         showError(true, "El guardado no está persistiendo de forma confiable. Usa \"Compartir o copiar respaldo\" en Inicio antes de cerrar la app.");
       }
     }

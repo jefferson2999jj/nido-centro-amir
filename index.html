@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Nido" />
 <meta name="format-detection" content="telephone=no" />
 <meta name="description" content="Centro de cuidado de Amir para la niñera y la familia." />
-<title>Nido 💙</title>
+<title>Nido</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
@@ -52,10 +52,17 @@
       <div class="hero-top">
         <h1><span class="mono" aria-hidden="true">A</span>Centro de Amir</h1>
         <div class="role-toggle">
-          <button id="roleNineraH" class="active">Niñera</button>
-          <button id="rolePadresH">Padres</button>
+          <button class="active">Niñera</button>
+          <button>Padres</button>
         </div>
       </div>
+      <span class="hero-kick" id="greetDate">—</span>
+      <div class="hero-row"><div class="hero-title" id="greetText">Hola</div></div>
+      <button type="button" class="today-card" id="homeToday">
+        <div class="ring"><svg viewBox="0 0 72 72" aria-hidden="true"><circle class="ring-bg" cx="36" cy="36" r="30"/><circle class="ring-fill" id="homeRing" cx="36" cy="36" r="30" stroke-dasharray="0 999"/></svg><div class="progress-count" id="homeCount">0/0</div></div>
+        <div class="tc-body"><div class="tc-kicker">Checklist de hoy</div><div class="tc-title" id="homeTitle">—</div><div class="tc-next" id="homeNext"></div></div>
+        <span class="row-chev"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></span>
+      </button>
     </div>
     <div class="card ios-install" id="iosInstallCard" hidden>
       <div class="sec-heading" style="margin-top:0;">Instalar en el teléfono</div>
@@ -76,16 +83,10 @@
       </ol>
       <p class="install-note">Así no se borra al cerrar el navegador y se ve a pantalla completa. Padres y niñera pueden usar iPhone o Samsung — es el mismo Nido.</p>
     </div>
-    <div class="greet-block">
-      <div class="greet-sub" id="greetDate">—</div>
-      <div class="greet" id="greetText">¡Bienvenida! 👋</div>
+    <div class="card task-card">
+      <div class="sec-head"><div class="sec-heading">Recordatorios</div><span class="sec-count" id="remCount"></span></div>
+      <div id="reminders"></div>
     </div>
-    <button type="button" class="today-card" id="homeToday">
-      <div class="ring"><svg viewBox="0 0 72 72" aria-hidden="true"><circle class="ring-bg" cx="36" cy="36" r="30"/><circle class="ring-fill" id="homeRing" cx="36" cy="36" r="30" stroke-dasharray="0 999"/></svg><div class="progress-count" id="homeCount">0/0</div></div>
-      <div class="tc-body"><div class="tc-kicker">Checklist de hoy</div><div class="tc-title" id="homeTitle">—</div><div class="tc-next" id="homeNext"></div></div>
-    </button>
-    <div class="block-title">Recordatorios</div>
-    <div id="reminders"></div>
     <div class="card" id="manualReminderForm" hidden>
         <div class="sec-heading" id="remHeading">Recordatorio para la niñera</div>
         <div class="field"><label>Texto</label><input type="text" id="remText" placeholder="Ej. Cortar uñas, llevar chaqueta…"></div>
@@ -99,8 +100,6 @@
       <div class="field" style="margin-top:12px;"><label>Nueva niñera</label><input type="text" id="newProfileName" placeholder="Nombre"></div>
       <button class="submit-btn" id="addProfileBtn">Crear perfil</button>
     </div>
-    <div class="block-title">Resumen</div>
-    <div class="stat-grid" id="dashStats"></div>
     <div class="card" id="diagCard" hidden>
       <div class="sec-heading" style="margin-top:0;">Sincronización</div>
       <div id="diagStatus" style="font-size:12.5px;line-height:1.6;color:var(--ink-soft);"></div>
@@ -108,9 +107,9 @@
     <div class="card" id="backupCard" hidden>
       <div class="sec-heading" style="margin-top:0;">Respaldo manual</div>
       <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">Padres y niñera ya se sincronizan solos. Este respaldo es por si no hay internet: compártelo a Archivos, Drive o Notas, y pégalo o elige el archivo para restaurar.</p>
-      <button class="toggle-btn" id="copyBackupBtn" style="margin-bottom:10px;">📤 Compartir o copiar respaldo</button>
+      <button class="toggle-btn" id="copyBackupBtn" style="margin-bottom:10px;">Compartir o copiar respaldo</button>
       <div id="backupMsg" style="font-size:12px;font-weight:700;color:var(--green);display:none;margin-bottom:10px;">¡Listo! Guárdalo en Notas o Archivos.</div>
-      <label class="toggle-btn" for="restoreFileInput" style="margin-bottom:10px;">📁 Restaurar desde un archivo</label>
+      <label class="toggle-btn" for="restoreFileInput" style="margin-bottom:10px;">Restaurar desde un archivo</label>
       <input type="file" id="restoreFileInput" accept="application/json,.json,text/plain" class="file-hidden" tabindex="-1">
       <textarea id="backupPaste" placeholder="O pega aquí un respaldo copiado antes…" style="width:100%;min-height:70px;border:1.5px solid var(--line);background:var(--paper);border-radius:11px;padding:9px 12px;font-family:var(--font);font-size:16px;color:var(--ink);margin-bottom:8px;"></textarea>
       <button class="submit-btn" id="restoreBackupBtn">Restaurar desde este texto</button>
@@ -123,8 +122,8 @@
       <div class="hero-top">
         <h1><span class="mono" aria-hidden="true">A</span>Centro de Amir</h1>
         <div class="role-toggle">
-          <button id="roleNinera" class="active">Niñera</button>
-          <button id="rolePadres">Padres</button>
+          <button class="active">Niñera</button>
+          <button>Padres</button>
         </div>
       </div>
       <div class="day-row">
@@ -195,11 +194,125 @@
 
   <!-- DOCS TAB -->
   <div class="tab-content" id="tab-docs">
-    <div class="top-card">
-      <h1>Docs</h1>
-      <div class="sub">Horario de Amir y documentos importantes</div>
+    <div class="hero">
+      <div class="hero-top">
+        <h1><span class="mono" aria-hidden="true">A</span>Centro de Amir</h1>
+        <div class="role-toggle">
+          <button class="active">Niñera</button>
+          <button>Padres</button>
+        </div>
+      </div>
+      <span class="hero-kick">Horario y documentos de Amir</span>
+      <div class="hero-row">
+        <div class="hero-title">Docs</div>
+        <button type="button" class="hero-act" id="toggleDocForm"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Agregar</button>
+      </div>
+      <div class="pill-scroll" id="docFilters"></div>
     </div>
-    <div class="pill-scroll" id="docFilters"></div>
+    <div class="card task-card">
+      <div class="sec-head"><div class="sec-heading" id="docsHeading">Todos</div><span class="sec-count" id="docsCount"></span></div>
+      <div id="docsList"></div>
+    </div>
+  </div>
+
+  <!-- CALENDARIO TAB -->
+  <div class="tab-content" id="tab-cal">
+    <div class="hero">
+      <div class="hero-top">
+        <h1><span class="mono" aria-hidden="true">A</span>Centro de Amir</h1>
+        <div class="role-toggle">
+          <button class="active">Niñera</button>
+          <button>Padres</button>
+        </div>
+      </div>
+      <span class="hero-kick">Citas y eventos de Amir</span>
+      <div class="hero-row">
+        <div class="hero-title">Calendario</div>
+        <button type="button" class="hero-act" id="toggleEventForm"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Agregar</button>
+      </div>
+    </div>
+    <div class="card task-card">
+      <div class="cal-head">
+        <button id="prevMonth" aria-label="Mes anterior"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <div class="cal-title" id="calTitle">—</div>
+        <button id="nextMonth" aria-label="Mes siguiente"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+    <div class="card task-card">
+      <div class="sec-head"><div class="sec-heading" id="dayDetailTitle">—</div><span class="sec-count" id="dayDetailCount"></span></div>
+      <div id="dayDetailList"></div>
+    </div>
+  </div>
+
+  <!-- RECETAS TAB -->
+  <div class="tab-content" id="tab-recetas">
+    <div class="hero">
+      <div class="hero-top">
+        <h1><span class="mono" aria-hidden="true">A</span>Centro de Amir</h1>
+        <div class="role-toggle">
+          <button class="active">Niñera</button>
+          <button>Padres</button>
+        </div>
+      </div>
+      <span class="hero-kick">Para Amir</span>
+      <div class="hero-row">
+        <div class="hero-title">Recetas</div>
+        <button type="button" class="hero-act" id="toggleRecForm"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Agregar</button>
+      </div>
+      <div class="pill-scroll" id="recFilters"></div>
+    </div>
+    <div class="card task-card">
+      <div class="sec-head"><div class="sec-heading" id="recHeading">Todos</div><span class="sec-count" id="recCount"></span></div>
+      <div id="recetasList"></div>
+    </div>
+  </div>
+
+  <!-- LIBRES TAB -->
+  <div class="tab-content" id="tab-libres">
+    <div class="hero">
+      <div class="hero-top">
+        <h1><span class="mono" aria-hidden="true">A</span>Centro de Amir</h1>
+        <div class="role-toggle">
+          <button class="active">Niñera</button>
+          <button>Padres</button>
+        </div>
+      </div>
+      <span class="hero-kick">Vacaciones, holidays y días extras</span>
+      <div class="hero-row">
+        <div class="hero-title">Tiempo Libre</div>
+        <button type="button" class="hero-act" id="toggleLibreForm"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Solicitar</button>
+      </div>
+      <div class="balance-box">
+        <div class="balance-top">
+          <span>Días disponibles este año</span>
+          <span class="balance-num" id="balanceNum">10 de 10</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="balanceFill" style="width:0%;"></div></div>
+        <div class="balance-detail" id="balanceDetail"></div>
+      </div>
+    </div>
+
+    <div class="card task-card">
+      <div class="sec-head"><div class="sec-heading" id="benefitsHeading">Beneficios de la niñera</div></div>
+      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg></span><span>2 semanas pagadas al año (10 días laborables)</span></div>
+      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"/></svg></span><span>Holidays — pagos estipulados en el contrato</span></div>
+      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 10h18M8 3v4M16 3v4"/></svg></span><span>Días extras — cualquier día libre adicional que la familia decida dar (ej. vacaciones familiares) también se paga completo</span></div>
+      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.4 0-2.5.7-2.5 1.9 0 2.6 5 1.4 5 4.1 0 1.2-1.1 2-2.5 2-1.2 0-2.2-.5-2.7-1.4M12 6.5V8M12 16v1.5"/></svg></span><span id="bonusCount">2 bonos al año</span></div>
+      <div class="bonus-list" id="bonusList"></div>
+      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg></span><span id="scheduleText">Horario: 8:00 am – 4:00 pm</span></div>
+      <button type="button" class="toggle-btn" id="editBenefitsBtn" hidden>Editar bonos y horario</button>
+      <div class="benefit-note">Según el acuerdo firmado: avisar con 2 semanas de anticipación cuando sea un día planeado.</div>
+    </div>
+
+    <div id="libresList"></div>
+  </div>
+
+</div>
+
+<div class="form-modal-bg hidden" id="docFormBg">
+  <div class="form-modal">
+    <div class="form-modal-head"><h3>Nuevo documento</h3><button class="form-modal-close" id="closeDocForm" aria-label="Cerrar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="new-form">
       <div class="field"><label>Categoría</label>
         <select id="docCategory">
@@ -214,82 +327,19 @@
       <div class="field"><label>Escribir documento (texto o enlace)</label><textarea id="docBody" placeholder="Escribe el contenido, pega el texto o pega un enlace…"></textarea></div>
       <div class="field" id="docImagesWrap">
         <label>O subir fotos del documento</label>
-        <label class="toggle-btn" for="docImages" style="margin-bottom:6px;">📷 Subir fotos</label>
+        <label class="toggle-btn" for="docImages" style="margin-bottom:6px;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>Subir fotos</label>
         <input type="file" id="docImages" accept="image/*" multiple class="file-hidden" tabindex="-1">
         <p class="install-note" style="margin-top:6px;">Puedes escribir el documento, subir fotos, o ambos. Luego toca Guardar.</p>
         <div class="doc-photos" id="docImagePreview"></div>
       </div>
       <button class="submit-btn" id="addDocBtn">Guardar documento</button>
     </div>
-    <div id="docsList"></div>
   </div>
-
-  <!-- CALENDARIO TAB -->
-  <div class="tab-content" id="tab-cal">
-    <div class="top-card">
-      <h1>Calendario</h1>
-      <div class="sub">Citas y eventos de Amir</div>
-    </div>
-    <div class="cal-card">
-      <div class="cal-head">
-        <button id="prevMonth">‹</button>
-        <div class="cal-title" id="calTitle">—</div>
-        <button id="nextMonth">›</button>
-      </div>
-      <div class="cal-grid" id="calGrid"></div>
-    </div>
-    <button class="toggle-btn" id="toggleEventForm">＋ Agregar cita o salida</button>
-    <div class="day-detail-title" id="dayDetailTitle">—</div>
-    <div id="dayDetailList"></div>
-  </div>
-
-  <!-- RECETAS TAB -->
-  <div class="tab-content" id="tab-recetas">
-    <div class="top-card">
-      <h1>Recetas para Amir</h1>
-    </div>
-    <button class="toggle-btn" id="toggleRecForm">＋ Agregar receta</button>
-    <div class="pill-scroll" id="recFilters"></div>
-    <div id="recetasList"></div>
-  </div>
-
-  <!-- LIBRES TAB -->
-  <div class="tab-content" id="tab-libres">
-    <div class="top-card">
-      <h1>Tiempo Libre</h1>
-      <div class="sub">Vacaciones, holidays y días extras</div>
-    </div>
-
-    <div class="benefits-card">
-      <div class="sec-heading" style="margin-top:0;" id="benefitsHeading">Beneficios de la niñera</div>
-      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg></span><span>2 semanas pagadas al año (10 días laborables)</span></div>
-      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"/></svg></span><span>Holidays — pagos estipulados en el contrato</span></div>
-      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 10h18M8 3v4M16 3v4"/></svg></span><span>Días extras — cualquier día libre adicional que la familia decida dar (ej. vacaciones familiares) también se paga completo</span></div>
-      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.4 0-2.5.7-2.5 1.9 0 2.6 5 1.4 5 4.1 0 1.2-1.1 2-2.5 2-1.2 0-2.2-.5-2.7-1.4M12 6.5V8M12 16v1.5"/></svg></span><span id="bonusCount">2 bonos al año</span></div>
-      <div class="bonus-list" id="bonusList"></div>
-      <div class="benefit-row"><span class="b-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg></span><span id="scheduleText">Horario: 8:00 am – 4:00 pm</span></div>
-      <button type="button" class="toggle-btn" id="editBenefitsBtn" hidden>Editar bonos y horario</button>
-      <div class="benefit-note">Según el acuerdo firmado: avisar con 2 semanas de anticipación cuando sea un día planeado.</div>
-
-      <div class="balance-box">
-        <div class="balance-top">
-          <span>Días disponibles este año</span>
-          <span class="balance-num" id="balanceNum">10/10</span>
-        </div>
-        <div class="progress-track"><div class="progress-fill" id="balanceFill" style="width:0%;"></div></div>
-        <div class="balance-detail" id="balanceDetail"></div>
-      </div>
-    </div>
-
-    <button class="toggle-btn" id="toggleLibreForm">＋ Solicitar tiempo libre</button>
-    <div id="libresList"></div>
-  </div>
-
 </div>
 
 <div class="form-modal-bg hidden" id="eventFormBg">
   <div class="form-modal">
-    <div class="form-modal-head"><h3>Nuevo evento</h3><button class="form-modal-close" id="closeEventForm">✕</button></div>
+    <div class="form-modal-head"><h3>Nuevo evento</h3><button class="form-modal-close" id="closeEventForm" aria-label="Cerrar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="new-form" id="eventForm">
       <div class="field-row">
         <div class="field"><label>Fecha</label><input type="date" id="evDate"></div>
@@ -304,7 +354,7 @@
 
 <div class="form-modal-bg hidden" id="recFormBg">
   <div class="form-modal">
-    <div class="form-modal-head"><h3 id="recFormTitle">Nueva receta</h3><button class="form-modal-close" id="closeRecForm">✕</button></div>
+    <div class="form-modal-head"><h3 id="recFormTitle">Nueva receta</h3><button class="form-modal-close" id="closeRecForm" aria-label="Cerrar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="new-form" id="recForm">
       <div class="field"><label>Tipo</label>
         <select id="recCategory">
@@ -333,7 +383,7 @@
 
 <div class="form-modal-bg hidden" id="libreFormBg">
   <div class="form-modal">
-    <div class="form-modal-head"><h3>Solicitar tiempo libre</h3><button class="form-modal-close" id="closeLibreForm">✕</button></div>
+    <div class="form-modal-head"><h3>Solicitar tiempo libre</h3><button class="form-modal-close" id="closeLibreForm" aria-label="Cerrar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="type-select-outer">
       <label class="type-select-label">Tipo de tiempo libre</label>
       <div class="pill-row" id="libCategoryRow">
@@ -367,10 +417,10 @@
 
 <div class="form-modal-bg hidden" id="benefitsFormBg">
   <div class="form-modal">
-    <div class="form-modal-head"><h3 id="benefitsFormTitle">Bonos y horario</h3><button class="form-modal-close" id="closeBenefitsForm">✕</button></div>
+    <div class="form-modal-head"><h3 id="benefitsFormTitle">Bonos y horario</h3><button class="form-modal-close" id="closeBenefitsForm" aria-label="Cerrar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="new-form" id="benefitsForm">
       <div class="field"><label>Bonos</label><div id="bfBonuses"></div></div>
-      <button type="button" class="toggle-btn" id="bfAddBonus">＋ Agregar bono</button>
+      <button type="button" class="toggle-btn" id="bfAddBonus"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Agregar bono</button>
       <div class="field-row">
         <div class="field"><label>Hora de entrada</label><input type="time" id="bfStart"></div>
         <div class="field"><label>Hora de salida</label><input type="time" id="bfEnd"></div>
@@ -390,9 +440,11 @@
 </div>
 
 <div class="img-lightbox hidden" id="imgLightbox">
-  <button type="button" class="img-lightbox-close" id="imgLightboxClose">✕</button>
+  <button type="button" class="img-lightbox-close" id="imgLightboxClose" aria-label="Cerrar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <img id="imgLightboxImg" alt="">
 </div>
+
+<div class="toast" id="toast" hidden><span id="toastText"></span><button type="button" id="toastUndo">Deshacer</button></div>
 
 <div class="bottom-nav">
   <button class="nav-btn active" data-tab="inicio"><span class="nav-ic"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>Inicio</button>
